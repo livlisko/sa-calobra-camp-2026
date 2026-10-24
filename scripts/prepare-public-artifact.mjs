@@ -49,8 +49,23 @@ if (!html.includes(snapshotName)) {
   throw new Error("HTML does not reference the content-addressed snapshot.");
 }
 
-await rm(siteDir, { recursive: true, force: true });
 await mkdir(siteDir, { recursive: true });
+
+// This script owns only the root report shell and its content-addressed
+// snapshot. Other independently built Pages artifacts (notably /map/) must
+// survive when the report is refreshed.
+const siteEntries = await readdir(siteDir, { withFileTypes: true });
+const ownedRootFiles = siteEntries.filter(
+  (entry) =>
+    entry.isFile() &&
+    (entry.name === "index.html" ||
+      entry.name === ".nojekyll" ||
+      /^snapshot\.[a-f0-9]{64}\.json$/.test(entry.name)),
+);
+await Promise.all(
+  ownedRootFiles.map((entry) => rm(path.join(siteDir, entry.name), { force: true })),
+);
+
 await writeFile(path.join(siteDir, "index.html"), html);
 await writeFile(path.join(siteDir, snapshotName), snapshotBytes);
 await writeFile(path.join(siteDir, ".nojekyll"), "");

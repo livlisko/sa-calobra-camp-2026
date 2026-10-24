@@ -4,6 +4,8 @@ A public, mobile-friendly analysis of six consecutive Mallorca rides from 18–2
 
 **Live report:** https://livlisko.github.io/sa-calobra-camp-2026/
 
+**Interactive relief map:** https://livlisko.github.io/sa-calobra-camp-2026/map/
+
 The report covers week load, a gap-safe power-duration curve, genuinely distinct effort counts, ride-by-ride power/heart-rate/elevation traces, named climb efforts, durability, power-zone distribution, and evidence-bound training targets.
 
 ## Named segment method
@@ -19,14 +21,15 @@ The camp-facing climb names and competition links come from the daily Sa Calobra
 
 ## Public-data boundary
 
-The published bundle contains derived ride metrics and 30-second relative-time telemetry because this is intentionally a public performance report. It does **not** contain raw FIT files, GPS coordinates, exact clock-time tracks, Strava activity/profile identifiers, original FIT filenames, file hashes, local filesystem paths, emails, tokens, or chat exports.
+The root report contains derived ride metrics and 30-second relative-time telemetry without GPS coordinates. The relief map intentionally adds downsampled route geometry and coordinate-bearing telemetry after trimming a one-kilometre radius around the repeatedly detected private endpoint. Neither artifact contains raw FIT files, exact clock-time tracks, the private endpoint coordinate, Strava activity/profile identifiers, original FIT filenames, local filesystem paths, emails, tokens, or chat exports.
 
-The static page loads one content-addressed JSON snapshot by a repository-relative URL. It does not require a ChatGPT Sites backend or a runtime API.
+Both pages load reviewed static JSON snapshots by repository-relative URLs. They do not require a ChatGPT Sites backend or a runtime API.
 
 ## Verification
 
 ```sh
-npm test
+npm ci
+npm run verify
 ```
 
-The GitHub Pages workflow runs the public-data and evidence checks before every deployment.
+The verification command type-checks and builds the relief map, then runs the public-data and evidence checks for both pages. The GitHub Pages workflow repeats the same sequence before every deployment.

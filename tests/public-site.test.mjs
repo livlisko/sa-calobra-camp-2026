@@ -6,8 +6,24 @@ import test from "node:test";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const siteDir = path.join(repoRoot, "site");
-const files = await readdir(siteDir);
-const snapshotNames = files.filter((file) => /^snapshot\.[a-f0-9]{64}\.json$/.test(file));
+
+async function collectFiles(directory, relativeDirectory = "") {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const relativePath = path.join(relativeDirectory, entry.name);
+      return entry.isDirectory()
+        ? collectFiles(path.join(directory, entry.name), relativePath)
+        : [relativePath];
+    }),
+  );
+  return files.flat().sort();
+}
+
+const files = await collectFiles(siteDir);
+const snapshotNames = files.filter(
+  (file) => path.dirname(file) === "." && /^snapshot\.[a-f0-9]{64}\.json$/.test(file),
+);
 
 test("site contains one hash-bound snapshot", async () => {
   assert.equal(snapshotNames.length, 1);
@@ -29,6 +45,12 @@ test("public bundle omits local and activity identifiers", async () => {
   }
   assert.doesNotMatch(text, /\b\d{11}_ACTIVITY(?: 2)?\.fit\b/);
   assert.doesNotMatch(text, /strava\.com\/activities\/\d+/);
+});
+
+test("public tree includes both the report and the independently built map", async () => {
+  assert.equal(files.includes("index.html"), true);
+  assert.equal(files.includes(path.join("map", "index.html")), true);
+  assert.equal(files.includes(path.join("map", "data", "mallorca-map.snapshot.json")), true);
 });
 
 test("report is complete and uses corrected ride identities", async () => {

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07171a" />
+    <meta
+      name="description"
+      content="An interactive relief atlas of six rides across Mallorca, with verified climb segments and sampled ride telemetry."
+    />
+    <meta property="og:title" content="Mallorca in six rides" />
+    <meta
+      property="og:description"
+      content="Explore the island, the week's routes, and the climbs that shaped them."
+    />
+    <meta property="og:type" content="website" />
+    <title>Mallorca in six rides · Relief atlas</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#atlas-guide">Skip to the ride guide</a>
+    <main id="app" aria-busy="true"></main>
+    <noscript>
+      <div class="noscript">
+        This relief atlas needs JavaScript to draw the routes. The week analysis remains available on
+        <a href="../">the main report</a>.
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
