@@ -78,9 +78,6 @@ function shell(): void {
     <div class="atlas-app">
       <header class="masthead">
         <div class="masthead-copy">
-          <a class="back-link" href="../" aria-label="Read the full Sa Calobra camp analysis">
-            <span aria-hidden="true">←</span> Week analysis
-          </a>
           <p class="eyebrow">Sa Calobra Cycling Club · Mallorca 2026</p>
           <h1>Mallorca<br><em>in six rides</em></h1>
           <p class="lede">A relief atlas of the island, the week’s roads and the climbs that gave each day its shape.</p>
@@ -155,8 +152,8 @@ function renderLoadingError(error: unknown): void {
     element("h1", "", "The map data did not load."),
     element("p", "", error instanceof Error ? error.message : "An unexpected data error occurred."),
   );
-  const link = element("a", "primary-link", "Return to the week analysis");
-  link.href = "../";
+  const link = element("a", "primary-link", "Reload the relief atlas");
+  link.href = "./";
   panel.append(link);
   app.append(panel);
 }

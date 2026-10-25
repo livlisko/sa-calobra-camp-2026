@@ -91,29 +91,12 @@ a { color: inherit; }
   display: grid;
   grid-template-columns: minmax(230px, 0.8fr) minmax(280px, 1.35fr);
   grid-template-areas:
-    "back eyebrow"
+    ". eyebrow"
     "title lede";
   align-items: end;
   column-gap: clamp(26px, 5vw, 92px);
   row-gap: 8px;
 }
-
-.back-link {
-  grid-area: back;
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 40px;
-  color: #c8d2ca;
-  text-decoration: none;
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.back-link:hover { color: var(--cream); }
 
 .eyebrow,
 .guide-kicker,
@@ -871,15 +854,14 @@ summary:focus-visible {
   }
   .masthead-copy {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "back eyebrow"
-      "title title"
-      "lede lede";
+      "eyebrow"
+      "title"
+      "lede";
     row-gap: 7px;
   }
-  .back-link { min-height: 32px; font-size: 0.63rem; }
-  .masthead .eyebrow { align-self: center; text-align: right; font-size: 0.54rem; letter-spacing: 0.12em; }
+  .masthead .eyebrow { align-self: center; text-align: left; font-size: 0.54rem; letter-spacing: 0.12em; }
   .masthead h1 { margin-top: 5px; font-size: clamp(2.5rem, 14vw, 4.4rem); line-height: 0.79; }
   .lede { margin-top: 7px; font-size: 0.95rem; line-height: 1.35; }
   .masthead-actions { margin-top: 15px; }
