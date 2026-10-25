@@ -1,12 +1,12 @@
 {
-  "title": "Sa Calobra camp: durability under load",
+  "title": "Sa Calobra camp: where you stood",
   "status": "reviewed",
   "buildStatus": "complete",
-  "generatedAt": "2026-10-23T18:43:20.248569+02:00",
+  "generatedAt": "2026-10-25T12:00:00-04:00",
   "filters": [],
   "report": {
-    "asOf": "2026-10-23",
-    "originalQuestion": "What efforts happened across the six Sa Calobra camp rides, what does the week mean as a whole, and how should it inform future goals and training?"
+    "asOf": "2026-10-25",
+    "originalQuestion": "How did my six-ride camp performance compare with the supplied field results, and what do my FIT files add to that comparison?"
   },
   "queries": {
     "week_summary": {
@@ -169,7 +169,7 @@
           "minutesAtOrAbove227W": 27.9,
           "minutesAtOrAbove264W": 10.7,
           "plannedStage": "Sa Batalla",
-          "stageNote": "Weather reroute: Santa Magdalena matched; Sa Batalla and Santa Ll\u00facia did not.",
+          "stageNote": "Weather reroute: Santa Magdalena matched; Sa Batalla and Santa Llúcia did not.",
           "absoluteAltitudeCaveat": null
         },
         {
@@ -359,7 +359,7 @@
           {
             "field": "inclusiveAvgPowerW",
             "label": "Inclusive average power",
-            "definition": "Session total_work divided by timer time; includes coasting unlike the device-displayed pedaling average.",
+            "definition": "Session total_work divided by timer time; an inclusive whole-timer mean kept separate from the materially higher device-stored average, whose exact convention is not proven.",
             "componentIds": [
               "load-by-day",
               "ride-table",
@@ -956,7 +956,7 @@
         },
         {
           "zone": 2,
-          "zoneLabel": "139\u2013188 W",
+          "zoneLabel": "139–188 W",
           "lowerBoundW": 139,
           "upperBoundExclusiveW": 189,
           "minutes": 237.21,
@@ -965,7 +965,7 @@
         },
         {
           "zone": 3,
-          "zoneLabel": "189\u2013226 W",
+          "zoneLabel": "189–226 W",
           "lowerBoundW": 189,
           "upperBoundExclusiveW": 227,
           "minutes": 213.23,
@@ -974,7 +974,7 @@
         },
         {
           "zone": 4,
-          "zoneLabel": "227\u2013263 W",
+          "zoneLabel": "227–263 W",
           "lowerBoundW": 227,
           "upperBoundExclusiveW": 264,
           "minutes": 152.15,
@@ -983,7 +983,7 @@
         },
         {
           "zone": 5,
-          "zoneLabel": "264\u2013301 W",
+          "zoneLabel": "264–301 W",
           "lowerBoundW": 264,
           "upperBoundExclusiveW": 302,
           "minutes": 58.78,
@@ -1512,8 +1512,8 @@
         {
           "date": "2026-10-18",
           "stage": "Santa Magdalena reroute",
-          "campName": "Santa Ll\u00facia",
-          "stravaTitle": "santa ll\u00facia",
+          "campName": "Santa Llúcia",
+          "stravaTitle": "santa llúcia",
           "segmentId": "2252468",
           "stravaUrl": "https://www.strava.com/segments/2252468",
           "matched": false,
@@ -1607,8 +1607,8 @@
         {
           "date": "2026-10-21",
           "stage": "Queen Stage",
-          "campName": "S\u00f3ller",
-          "stravaTitle": "Coll de S\u00f3ller",
+          "campName": "Sóller",
+          "stravaTitle": "Coll de Sóller",
           "segmentId": "8107312",
           "stravaUrl": "https://www.strava.com/segments/8107312",
           "matched": true,
@@ -1703,7 +1703,7 @@
         {
           "date": "2026-10-23",
           "stage": "Cap de Formentor",
-          "campName": "Mirador d\u2019Albercutx",
+          "campName": "Mirador d’Albercutx",
           "stravaTitle": "Cap Formentor, Northbound (+ extra climb)",
           "segmentId": "654790",
           "stravaUrl": "https://www.strava.com/segments/654790",
@@ -1825,7 +1825,7 @@
           },
           {
             "title": "Weather reroute",
-            "detail": "On October 18, Santa Magdalena matched; Sa Batalla and Santa Ll\u00facia did not. The report therefore does not claim a Sa Batalla FTP test occurred."
+            "detail": "On October 18, Santa Magdalena matched; Sa Batalla and Santa Llúcia did not. The report therefore does not claim a Sa Batalla FTP test occurred."
           }
         ]
       }
@@ -32919,15 +32919,15 @@
         {
           "priority": 1,
           "focus": "Recover and absorb",
-          "target": "2\u20133 days off or genuinely easy; delay testing until sleep, soreness, energy and resting HR feel near baseline.",
-          "progression": "Resume endurance first. A fresh benchmark is usually more informative about 5\u20137 days after the block than immediately after it.",
+          "target": "2–3 days off or genuinely easy; delay testing until sleep, soreness, energy and resting HR feel near baseline.",
+          "progression": "Resume endurance first. A fresh benchmark is usually more informative about 5–7 days after the block than immediately after it.",
           "why": "Six consecutive ride days produced 1,066 Garmin TSS; the final three days held 61% of the load.",
           "confidence": "High for the need to absorb load; exact recovery time is individual."
         },
         {
           "priority": 2,
           "focus": "Threshold durability",
-          "target": "2 \u00d7 15 min at 235\u2013240 W, then 2 \u00d7 20 min; keep rep two within about 3% of rep one.",
+          "target": "2 × 15 min at 235–240 W, then 2 × 20 min; keep rep two within about 3% of rep one.",
           "progression": "Once repeatable fresh, place the set after roughly 2 hours of endurance riding.",
           "why": "The Queen Stage delivered 241 W for 30 min after 3:04 of riding with only a 3.2% half-to-half fade.",
           "confidence": "Conditional on the file-stored 250 W FTP remaining appropriate."
@@ -32943,17 +32943,17 @@
         {
           "priority": 4,
           "focus": "Fresh threshold benchmark",
-          "target": "First reproduce the previously known 263 W for 20 min; only then consider a 267\u2013270 W stretch or 35\u201340 min near 240\u2013250 W.",
+          "target": "First reproduce the previously known 263 W for 20 min; only then consider a 267–270 W stretch or 35–40 min near 240–250 W.",
           "progression": "Test fresh and under repeatable conditions. Keep 250 W provisional until a controlled result supports changing it.",
           "why": "Camp best was 244 W for 20 min mid-block and mid-ride; applying 95% to it would misuse a non-test effort.",
           "confidence": "The 263 W comparison comes from prior work, not from these six files, and may be stale."
         },
         {
           "priority": 5,
-          "focus": "VO\u2082 headroom and sprint maintenance",
-          "target": "If 250 W remains valid, try 4 \u00d7 4 min at roughly 265\u2013280 W; optionally add 4\u20136 \u00d7 8\u201310 sec fully recovered sprints.",
-          "progression": "Judge VO\u2082 only from a controlled session; this camp did not contain a clean maximal 5 min test.",
-          "why": "The route best 5 min was 260 W, while the final day still showed 839 W for 5 sec\u2014short-power reserve was present.",
+          "focus": "VO₂ headroom and sprint maintenance",
+          "target": "If 250 W remains valid, try 4 × 4 min at roughly 265–280 W; optionally add 4–6 × 8–10 sec fully recovered sprints.",
+          "progression": "Judge VO₂ only from a controlled session; this camp did not contain a clean maximal 5 min test.",
+          "why": "The route best 5 min was 260 W, while the final day still showed 839 W for 5 sec—short-power reserve was present.",
           "confidence": "Training range, not a diagnosis of weakness or a fixed prescription."
         }
       ],
@@ -33286,6 +33286,840 @@
           {
             "title": "Reproduce",
             "detail": "Generated 2026-10-23T18:43:20.248569+02:00. The public snapshot uses ride-01.fit through ride-06.fit aliases; raw files, activity identifiers, hashes and local filesystem paths are intentionally omitted."
+          }
+        ]
+      }
+    },
+    "camp_peer_summary": {
+      "label": "Camp peer-comparison summary",
+      "rows": [
+        {
+          "mountainPoints": 34,
+          "mountainRank": 1,
+          "mountainFieldSize": 10,
+          "mountainLeadPoints": 8,
+          "queenCompleteTime": "1:38:20",
+          "queenCompleteRank": 1,
+          "queenCompleteFieldSize": 9,
+          "queenLeadSeconds": 138,
+          "queenLeadTime": "2:18",
+          "queenVsMedianSeconds": -623.0,
+          "queenVsMedianTime": "−10:23",
+          "ttScratchTime": "42:53",
+          "ttScratchRank": 3,
+          "ttScratchFieldSize": 12,
+          "ttHandicapTime": "63:08",
+          "ttHandicapSourcePlace": 11,
+          "ttEstimatedTime": "38:15",
+          "ttActualMinusEstimate": "+04:38",
+          "ttSaCalobraPowerW": 230,
+          "ttSaCalobraIntensityPct": 92.0,
+          "sprintPoints": 23,
+          "sprintRank": 4,
+          "sprintFieldSize": 10,
+          "sprintPowerW": 677,
+          "sprintWPerKg": 9.96,
+          "sprintWPerKgRank": 3
+        }
+      ],
+      "source": {
+        "label": "Supplied camp competition tables: reviewed summary",
+        "files": [
+          "Mountains tables · pages 1",
+          "Queen-stage climb table · page 1",
+          "Time-trial tables · pages 1",
+          "Sprint table · page 1"
+        ],
+        "filters": [
+          "Focal results matched by exact climb time/power anchors. Peer data are shown only as anonymous ranks, distributions, and field aggregates."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "mountainPoints",
+            "label": "Derived mountains points",
+            "definition": "Simple sum of published Stage 2, 4, and 6 points for riders complete in all three supplied tables; not an official published general classification.",
+            "componentIds": [
+              "peer-overview",
+              "mountain-points-chart"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          },
+          {
+            "field": "queenCompleteTime",
+            "label": "Four-climb Queen Stage time",
+            "definition": "Sum of reported Orient, Honor, Soller, and Puig Major times for riders with all four times; Tofla is not present in the raw climb-time sheet.",
+            "componentIds": [
+              "peer-overview",
+              "queen-complete-chart"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          },
+          {
+            "field": "ttScratchRank",
+            "label": "Sa Calobra scratch rank",
+            "definition": "Competition rank derived by sorting the 12 reported scratch times ascending.",
+            "componentIds": [
+              "peer-overview",
+              "tt-outcome"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          },
+          {
+            "field": "sprintRank",
+            "label": "Sprint source rank",
+            "definition": "Rank printed in the supplied sprint results among ten riders with a completed result.",
+            "componentIds": [
+              "peer-overview",
+              "sprint-profile-table"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Focal results matched by exact climb time/power anchors. Peer data are shown only as anonymous ranks, distributions, and field aggregates."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "mountain_points_distribution": {
+      "label": "Derived mountains-points distribution",
+      "rows": [
+        {
+          "entrant": "You",
+          "rank": 1,
+          "points": 34,
+          "isYou": true
+        },
+        {
+          "entrant": "Field 2",
+          "rank": 2,
+          "points": 26,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 3",
+          "rank": 3,
+          "points": 24,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 4",
+          "rank": 4,
+          "points": 22,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 5",
+          "rank": 5,
+          "points": 15,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 6",
+          "rank": 6,
+          "points": 14,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 7",
+          "rank": 7,
+          "points": 4,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 8",
+          "rank": 8,
+          "points": 2,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 9",
+          "rank": 8,
+          "points": 2,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 10",
+          "rank": 10,
+          "points": 0,
+          "isYou": false
+        }
+      ],
+      "source": {
+        "label": "Stages 2, 4, and 6 mountains tables: anonymous complete-rider distribution",
+        "files": [
+          "Stage 2 mountains · page 1",
+          "Stage 4 mountains · page 1",
+          "Stage 6 mountains · page 1"
+        ],
+        "filters": [
+          "Includes the 10 riders with reported points in all three supplied mountains tables. One rider with Stage 4 #N/A is excluded. This sum is analysis-derived, not an official published overall standing."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "points",
+            "label": "Derived points sum",
+            "definition": "Published stage points summed across Stages 2, 4, and 6 for complete riders only.",
+            "componentIds": [
+              "mountain-points-chart"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Includes the 10 riders with reported points in all three supplied mountains tables. One rider with Stage 4 #N/A is excluded. This sum is analysis-derived, not an official published overall standing."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "mountain_stage_benchmarks": {
+      "label": "Mountains points by stage",
+      "rows": [
+        {
+          "stage": "Stage 2",
+          "youPoints": 5,
+          "fieldMedian": 0.0,
+          "fieldBest": 5,
+          "rank": 1,
+          "fieldSize": 11
+        },
+        {
+          "stage": "Stage 4",
+          "youPoints": 22,
+          "fieldMedian": 7.0,
+          "fieldBest": 22,
+          "rank": 1,
+          "fieldSize": 10
+        },
+        {
+          "stage": "Stage 6",
+          "youPoints": 7,
+          "fieldMedian": 4.0,
+          "fieldBest": 12,
+          "rank": 5,
+          "fieldSize": 11
+        }
+      ],
+      "source": {
+        "label": "Stages 2, 4, and 6 mountains tables: stage benchmarks",
+        "files": [
+          "Stage 2 mountains · page 1",
+          "Stage 4 mountains · page 1",
+          "Stage 6 mountains · page 1"
+        ],
+        "filters": [
+          "Stage-specific published point sums. Stage 4 has 10 complete riders; Stages 2 and 6 have 11."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "youPoints",
+            "label": "Your stage points",
+            "definition": "Sum of the focal rider's published climb points within the named stage.",
+            "componentIds": [
+              "mountain-stage-chart"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Stage-specific published point sums. Stage 4 has 10 complete riders; Stages 2 and 6 have 11."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "queen_climb_benchmarks": {
+      "label": "Queen Stage climb benchmarks",
+      "rows": [
+        {
+          "climb": "Orient",
+          "youTime": "18:53",
+          "youSeconds": 1133,
+          "youMinutes": 18.88,
+          "fieldMedianTime": "20:31",
+          "fieldMedianSeconds": 1231.0,
+          "fieldMedianMinutes": 20.52,
+          "fieldFastestTime": "18:53",
+          "rank": 1,
+          "fieldSize": 10,
+          "deltaToMedianSeconds": -98.0,
+          "deltaToMedian": "−1:38",
+          "avgPowerW": 216,
+          "intensityPct": 86.0
+        },
+        {
+          "climb": "Honor",
+          "youTime": "7:19",
+          "youSeconds": 439,
+          "youMinutes": 7.32,
+          "fieldMedianTime": "7:10",
+          "fieldMedianSeconds": 430.0,
+          "fieldMedianMinutes": 7.17,
+          "fieldFastestTime": "6:18",
+          "rank": 6,
+          "fieldSize": 10,
+          "deltaToMedianSeconds": 9.0,
+          "deltaToMedian": "+0:09",
+          "avgPowerW": 198,
+          "intensityPct": 79.0
+        },
+        {
+          "climb": "Soller",
+          "youTime": "18:49",
+          "youSeconds": 1129,
+          "youMinutes": 18.82,
+          "fieldMedianTime": "21:15",
+          "fieldMedianSeconds": 1275.0,
+          "fieldMedianMinutes": 21.25,
+          "fieldFastestTime": "18:49",
+          "rank": 1,
+          "fieldSize": 10,
+          "deltaToMedianSeconds": -146.0,
+          "deltaToMedian": "−2:26",
+          "avgPowerW": 225,
+          "intensityPct": 90.0
+        },
+        {
+          "climb": "Puig Major",
+          "youTime": "53:19",
+          "youSeconds": 3199,
+          "youMinutes": 53.32,
+          "fieldMedianTime": "1:01:10",
+          "fieldMedianSeconds": 3670.0,
+          "fieldMedianMinutes": 61.17,
+          "fieldFastestTime": "53:19",
+          "rank": 1,
+          "fieldSize": 9,
+          "deltaToMedianSeconds": -471.0,
+          "deltaToMedian": "−7:51",
+          "avgPowerW": 236,
+          "intensityPct": 94.0
+        }
+      ],
+      "source": {
+        "label": "Queen Stage climb table: per-climb comparison",
+        "files": [
+          "Queen-stage climb data · page 1"
+        ],
+        "filters": [
+          "Reported times only. Missing climb times remain missing. Ranks use competition ranking; ties share a rank."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "youSeconds",
+            "label": "Your climb time",
+            "definition": "Reported focal-rider climb time converted to seconds.",
+            "componentIds": [
+              "queen-climb-chart",
+              "queen-climb-table"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          },
+          {
+            "field": "fieldMedianSeconds",
+            "label": "Field median time",
+            "definition": "Median among riders with a reported time for that climb.",
+            "componentIds": [
+              "queen-climb-chart",
+              "queen-climb-table"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Reported times only. Missing climb times remain missing. Ranks use competition ranking; ties share a rank."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "queen_complete_distribution": {
+      "label": "Queen Stage four-climb distribution",
+      "rows": [
+        {
+          "entrant": "You",
+          "rank": 1,
+          "totalTime": "1:38:20",
+          "totalSeconds": 5900,
+          "totalMinutes": 98.33,
+          "isYou": true
+        },
+        {
+          "entrant": "Field 2",
+          "rank": 2,
+          "totalTime": "1:40:38",
+          "totalSeconds": 6038,
+          "totalMinutes": 100.63,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 3",
+          "rank": 3,
+          "totalTime": "1:46:10",
+          "totalSeconds": 6370,
+          "totalMinutes": 106.17,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 4",
+          "rank": 4,
+          "totalTime": "1:46:48",
+          "totalSeconds": 6408,
+          "totalMinutes": 106.8,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 5",
+          "rank": 5,
+          "totalTime": "1:48:43",
+          "totalSeconds": 6523,
+          "totalMinutes": 108.72,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 6",
+          "rank": 6,
+          "totalTime": "1:50:13",
+          "totalSeconds": 6613,
+          "totalMinutes": 110.22,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 7",
+          "rank": 7,
+          "totalTime": "1:56:15",
+          "totalSeconds": 6975,
+          "totalMinutes": 116.25,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 8",
+          "rank": 8,
+          "totalTime": "2:00:07",
+          "totalSeconds": 7207,
+          "totalMinutes": 120.12,
+          "isYou": false
+        },
+        {
+          "entrant": "Field 9",
+          "rank": 9,
+          "totalTime": "2:15:29",
+          "totalSeconds": 8129,
+          "totalMinutes": 135.48,
+          "isYou": false
+        }
+      ],
+      "source": {
+        "label": "Queen Stage climb table: anonymous four-climb totals",
+        "files": [
+          "Queen-stage climb data · page 1"
+        ],
+        "filters": [
+          "Includes nine riders with reported times for all four climbs in the raw climb-time sheet. Lower total time is faster."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "totalSeconds",
+            "label": "Four-climb total time",
+            "definition": "Sum of Orient, Honor, Soller, and Puig Major times; excludes Tofla because it is absent from the raw climb-time sheet.",
+            "componentIds": [
+              "queen-complete-chart"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Includes nine riders with reported times for all four climbs in the raw climb-time sheet. Lower total time is faster."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "tt_outcome": {
+      "label": "Sa Calobra scratch and handicap outcome",
+      "rows": [
+        {
+          "resultView": "Scratch",
+          "youTime": "42:53",
+          "youSeconds": 2573,
+          "youMinutes": 42.88,
+          "rank": 3,
+          "fieldSize": 12,
+          "fieldMedianTime": "47:29",
+          "fieldMedianSeconds": 2849.0,
+          "fieldMedianMinutes": 47.48
+        },
+        {
+          "resultView": "With handicap",
+          "youTime": "63:08",
+          "youSeconds": 3788,
+          "youMinutes": 63.13,
+          "rank": 11,
+          "sourcePlace": 11,
+          "fieldSize": 12,
+          "fieldMedianTime": "1:00:12",
+          "fieldMedianSeconds": 3612.0,
+          "fieldMedianMinutes": 60.2
+        }
+      ],
+      "source": {
+        "label": "Sa Calobra start list and results: result-format comparison",
+        "files": [
+          "Sa Calobra start list · page 1",
+          "Sa Calobra results · page 1"
+        ],
+        "filters": [
+          "Scratch rank is analysis-derived from reported scratch times. The official source place is preserved; the source sequence jumps from 11 to 14."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "youSeconds",
+            "label": "Your result time",
+            "definition": "Reported scratch time or reported scratch-plus-handicap total, depending on the result view.",
+            "componentIds": [
+              "tt-outcome"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          },
+          {
+            "field": "rank",
+            "label": "Rank",
+            "definition": "Scratch rank is derived ascending; handicap rank is derived from reported totals and reconciles to the focal rider's source place.",
+            "componentIds": [
+              "tt-outcome"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Scratch rank is analysis-derived from reported scratch times. The official source place is preserved; the source sequence jumps from 11 to 14."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "sprint_profile": {
+      "label": "Sprint result profile",
+      "rows": [
+        {
+          "metric": "15-second power",
+          "value": 677.0,
+          "unit": "W",
+          "rank": 5,
+          "fieldSize": 10,
+          "fieldMedian": 647.5,
+          "fieldBest": 796.0,
+          "componentPoints": 6
+        },
+        {
+          "metric": "Power / weight",
+          "value": 9.96,
+          "unit": "W/kg",
+          "rank": 3,
+          "fieldSize": 10,
+          "fieldMedian": 8.785,
+          "fieldBest": 11.12,
+          "componentPoints": 9
+        },
+        {
+          "metric": "Power / FTP",
+          "value": 270.8,
+          "unit": "% FTP",
+          "rank": 4,
+          "fieldSize": 10,
+          "fieldMedian": 262.45000000000005,
+          "fieldBest": 331.7,
+          "componentPoints": 8
+        },
+        {
+          "metric": "Overall points",
+          "value": 23.0,
+          "unit": "points",
+          "rank": 4,
+          "fieldSize": 10,
+          "fieldMedian": 19.0,
+          "fieldBest": 31.0,
+          "componentPoints": null
+        }
+      ],
+      "source": {
+        "label": "Sprint competition table: focal profile and anonymous field benchmarks",
+        "files": [
+          "Sprint competition · page 1"
+        ],
+        "filters": [
+          "Includes the 10 riders with a completed 15-second result; the blank/zero source row is excluded from comparison ranks."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "rank",
+            "label": "Component rank",
+            "definition": "Competition rank within the 10 completed sprint results; higher power or points ranks better.",
+            "componentIds": [
+              "sprint-profile-table"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Includes the 10 riders with a completed 15-second result; the blank/zero source row is excluded from comparison ranks."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "peer_ride_context": {
+      "label": "Whole-ride load context",
+      "rows": [
+        {
+          "stage": "Stage 4",
+          "youNormalizedPowerW": 181,
+          "fieldMedianNormalizedPowerW": 181.0,
+          "youIntensityFactor": 0.72,
+          "fieldMedianIntensityFactor": 0.8,
+          "youTss": 272,
+          "fieldMedianTss": 305.0,
+          "youDuration": "05:11:06",
+          "fieldSize": 11
+        },
+        {
+          "stage": "Stage 5",
+          "youNormalizedPowerW": 193,
+          "fieldMedianNormalizedPowerW": 191.0,
+          "youIntensityFactor": 0.77,
+          "fieldMedianIntensityFactor": 0.8,
+          "youTss": 166,
+          "fieldMedianTss": 240.0,
+          "youDuration": "02:47:19",
+          "fieldSize": 11
+        },
+        {
+          "stage": "Stage 6",
+          "youNormalizedPowerW": 189,
+          "fieldMedianNormalizedPowerW": 187.5,
+          "youIntensityFactor": 0.76,
+          "fieldMedianIntensityFactor": 0.78,
+          "youTss": 191,
+          "fieldMedianTss": 236.0,
+          "youDuration": "03:20:02",
+          "fieldSize": 10
+        }
+      ],
+      "source": {
+        "label": "Stages 4, 5, and 6 whole-ride power tables: field medians",
+        "files": [
+          "Stage 4 ride data · page 1",
+          "Stage 5 ride data · page 1",
+          "Stage 6 ride data · page 1"
+        ],
+        "filters": [
+          "Descriptive organizer-published values only. Whole-ride duration, group behavior, stops, and rider FTP settings differ. One incomplete Stage 6 row is excluded. Stage 4 focal values differ materially from the supplied FIT session and are preserved rather than overwritten."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "youIntensityFactor",
+            "label": "Your intensity factor",
+            "definition": "Published whole-ride normalized power divided by the source FTP setting.",
+            "componentIds": [
+              "peer-load-chart"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Descriptive organizer-published values only. Whole-ride duration, group behavior, stops, and rider FTP settings differ. One incomplete Stage 6 row is excluded. Stage 4 focal values differ materially from the supplied FIT session and are preserved rather than overwritten."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
+          }
+        ]
+      }
+    },
+    "comparison_validation": {
+      "label": "Peer-comparison validation ledger",
+      "rows": [
+        {
+          "check": "Identity match",
+          "result": "pass",
+          "detail": "Exact Sa Calobra and Puig Major time/power anchors reconcile to the focal results row."
+        },
+        {
+          "check": "Mountains total",
+          "result": "pass",
+          "detail": "5 + 22 + 7 = 34; 10 complete riders; one Stage 4 #N/A excluded."
+        },
+        {
+          "check": "Queen-stage total",
+          "result": "pass",
+          "detail": "18:53 + 7:19 + 18:49 + 53:19 = 1:38:20; nine complete riders."
+        },
+        {
+          "check": "Time-trial arithmetic",
+          "result": "pass",
+          "detail": "42:53 scratch + 20:15 handicap = 63:08 reported total."
+        },
+        {
+          "check": "Whole-ride source separation",
+          "result": "pass",
+          "detail": "Organizer-published and FIT-derived Stage 4 load values remain separately labelled because NP, IF and TSS differ materially."
+        },
+        {
+          "check": "Public privacy",
+          "result": "pass",
+          "detail": "No peer names, source filenames, activity IDs, raw FIT rows, coordinates, or name crosswalk are included."
+        }
+      ],
+      "source": {
+        "label": "Local reproducibility checks",
+        "files": [
+          "Local reviewed analysis"
+        ],
+        "filters": [
+          "Assertions run while creating the reviewed public aggregates; source tables remain in the private task workspace."
+        ],
+        "metricDefinitions": [
+          {
+            "field": "result",
+            "label": "Validation result",
+            "definition": "Pass means the named arithmetic, coverage, or privacy assertion succeeded.",
+            "componentIds": [
+              "comparison-validation"
+            ],
+            "sourceLineage": [
+              {
+                "files": [
+                  "Supplied camp results · page 1"
+                ]
+              }
+            ]
+          }
+        ],
+        "evidenceFlow": [
+          {
+            "title": "Scope",
+            "detail": "Assertions run while creating the reviewed public aggregates; source tables remain in the private task workspace."
+          },
+          {
+            "title": "Privacy",
+            "detail": "The public snapshot identifies the focal rider only as You and contains no peer-name crosswalk."
           }
         ]
       }

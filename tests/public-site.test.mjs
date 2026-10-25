@@ -77,6 +77,60 @@ test("named segment ledger is complete and evidence-bound", async () => {
   assert.deepEqual([saCalobra.time, saCalobra.averagePowerW], ["42:53", 230.1]);
 });
 
+test("peer comparison is complete, anonymized, and arithmetically anchored", async () => {
+  const payload = JSON.parse(await readFile(path.join(siteDir, snapshotNames[0]), "utf8"));
+  const summary = payload.queries.camp_peer_summary.rows[0];
+  assert.deepEqual(
+    [summary.mountainPoints, summary.mountainRank, summary.mountainFieldSize],
+    [34, 1, 10],
+  );
+  assert.deepEqual(
+    [summary.queenCompleteTime, summary.queenCompleteRank, summary.queenCompleteFieldSize],
+    ["1:38:20", 1, 9],
+  );
+  assert.deepEqual(
+    [summary.ttScratchTime, summary.ttScratchRank, summary.ttHandicapSourcePlace],
+    ["42:53", 3, 11],
+  );
+  assert.deepEqual(
+    [summary.sprintPoints, summary.sprintRank, summary.sprintWPerKgRank],
+    [23, 4, 3],
+  );
+
+  const mountainRows = payload.queries.mountain_points_distribution.rows;
+  const queenRows = payload.queries.queen_complete_distribution.rows;
+  assert.equal(mountainRows.length, 10);
+  assert.equal(queenRows.length, 9);
+  assert.equal(payload.queries.queen_climb_benchmarks.rows.length, 4);
+  assert.equal(payload.queries.comparison_validation.rows.length, 6);
+  for (const row of [...mountainRows, ...queenRows]) {
+    assert.match(row.entrant, /^(You|Field \d+)$/);
+    assert.equal(Object.hasOwn(row, "rider"), false);
+    assert.equal(Object.hasOwn(row, "name"), false);
+  }
+});
+
+test("peer source metadata exposes no raw source filenames or identity crosswalk", async () => {
+  const payload = JSON.parse(await readFile(path.join(siteDir, snapshotNames[0]), "utf8"));
+  const comparisonQueryIds = [
+    "camp_peer_summary",
+    "mountain_points_distribution",
+    "mountain_stage_benchmarks",
+    "queen_climb_benchmarks",
+    "queen_complete_distribution",
+    "tt_outcome",
+    "sprint_profile",
+    "peer_ride_context",
+    "comparison_validation",
+  ];
+  const comparisonText = JSON.stringify(
+    Object.fromEntries(comparisonQueryIds.map((id) => [id, payload.queries[id]])),
+  );
+  assert.doesNotMatch(comparisonText, /\.pdf\b/i);
+  assert.doesNotMatch(comparisonText, /_ACTIVITY(?: 2)?\.fit\b/i);
+  assert.doesNotMatch(comparisonText, /\b(?:rider|participant)(?:Name|Identity|Crosswalk)\b/i);
+});
+
 test("HTML points to the reviewed snapshot and not a hosted API", async () => {
   const html = await readFile(path.join(siteDir, "index.html"), "utf8");
   assert.equal(html.includes(snapshotNames[0]), true);
