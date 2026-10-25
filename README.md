@@ -6,7 +6,7 @@ A public, mobile-friendly analysis of six consecutive Mallorca rides from 18–2
 
 **Interactive relief map:** https://livlisko.github.io/sa-calobra-camp-2026/map/
 
-The report covers week load, a gap-safe power-duration curve, genuinely distinct effort counts, ride-by-ride power/heart-rate/elevation traces, named climb efforts, durability, power-zone distribution, and evidence-bound training targets.
+The report covers week load, a gap-safe power-duration curve, genuinely distinct effort counts, ride-by-ride power/heart-rate/elevation traces, named climb efforts, durability, power-zone distribution, and evidence-bound training targets. The atlas adds an island-wide relief view with sourced Tramuntana summit heights and a browser-only FIT importer for comparing repeat attempts on the same segment boundary over time.
 
 ## Named segment method
 
@@ -23,7 +23,7 @@ The camp-facing climb names and competition links come from the daily Sa Calobra
 
 The root report contains derived ride metrics and 30-second relative-time telemetry without GPS coordinates. The relief map intentionally adds downsampled route geometry and coordinate-bearing telemetry after trimming a one-kilometre radius around the repeatedly detected private endpoint. Neither artifact contains raw FIT files, exact clock-time tracks, the private endpoint coordinate, Strava activity/profile identifiers, original FIT filenames, local filesystem paths, emails, tokens, or chat exports.
 
-Both pages load reviewed static JSON snapshots by repository-relative URLs. They do not require a ChatGPT Sites backend or a runtime API.
+Both pages load reviewed static JSON snapshots by repository-relative URLs. They do not require a ChatGPT Sites backend or a runtime API. Historical FIT files selected in the comparison view are parsed locally in a web worker: raw files, full tracks, filenames, and device identifiers are not uploaded or published. Remembering derived effort summaries is opt-in and local to that browser.
 
 ## Verification
 

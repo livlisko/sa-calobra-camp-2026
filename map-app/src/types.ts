@@ -111,7 +111,7 @@ export interface AtlasData {
   sourceNotes: string[];
 }
 
-export type GuideTab = "island" | "rides" | "segments" | "point";
+export type GuideTab = "island" | "rides" | "segments" | "point" | "compare";
 export type TerrainMode = "3d" | "2d";
 
 export interface CameraState {
@@ -126,6 +126,7 @@ export interface AtlasState {
   selectedRideId: string | null;
   selectedSegmentId: string | null;
   selectedPointId: string | null;
+  selectedSummitId: string | null;
   previewRideId: string | null;
   terrain: TerrainMode;
   tab: GuideTab;

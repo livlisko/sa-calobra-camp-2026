@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -195,4 +195,28 @@ test("map build ships and binds a same-origin MapLibre worker", async () => {
   assert.equal(appNames.length, 1, "one hashed application module");
   const appModule = await readFile(path.join(assetsDir, appNames[0]), "utf8");
   assert.equal(appModule.includes(workerNames[0]), true, "application binds the emitted worker URL");
+});
+
+test("comparison importer ships as a lazy same-origin worker", async () => {
+  const assetsDir = path.join(repoRoot, "site", "map", "assets");
+  const assetNames = await readdir(assetsDir);
+  const historyWorkers = assetNames.filter((name) => /^history-worker-[a-zA-Z0-9_-]+\.js$/.test(name));
+  const appName = assetNames.find((name) => /^index-[a-zA-Z0-9_-]+\.js$/.test(name));
+  assert.equal(historyWorkers.length, 1, "one hashed history-import worker asset");
+  assert.ok(appName, "hashed application module");
+  const appModule = await readFile(path.join(assetsDir, appName), "utf8");
+  assert.equal(appModule.includes(historyWorkers[0]), true, "application binds the same-origin history worker URL");
+  assert.match(appModule, /Your history stays local/);
+  assert.match(appModule, /Puig Major/);
+  assert.match(appModule, /Remember on this device/);
+});
+
+test("static fallback ships a compact terrain-derived Mallorca relief raster", async () => {
+  const reliefPath = path.join(repoRoot, "site", "map", "assets", "mallorca-relief.webp");
+  const metadata = await stat(reliefPath);
+  assert.ok(metadata.size > 30_000, "relief raster is non-trivial");
+  assert.ok(metadata.size < 700 * 1024, "relief raster stays within the public-page budget");
+  const header = await readFile(reliefPath);
+  assert.equal(header.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(header.subarray(8, 12).toString("ascii"), "WEBP");
 });

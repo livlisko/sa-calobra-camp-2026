@@ -10,6 +10,7 @@
     "verify": "npm run build:map && npm test"
   },
   "dependencies": {
+    "fit-file-parser": "6.2.3",
     "maplibre-gl": "6.15.0"
   },
   "devDependencies": {

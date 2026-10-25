@@ -1,7 +1,9 @@
 import "./map.css";
 import { loadAtlasData } from "./data";
 import { StaticMapFallback } from "./fallback";
+import { createLocalHistoryExperience } from "./local-history";
 import { ReliefMap } from "./map";
+import { MALLORCA_SUMMITS } from "./mountains";
 import { cameraFromMap, defaultState, stateFromHash, terrainLabel, writeStateToHash } from "./state";
 import type { AtlasData, AtlasState, GuideTab, Ride, Segment, TelemetrySample } from "./types";
 
@@ -95,12 +97,15 @@ function shell(): void {
 
       <section class="atlas-stage" aria-label="Interactive Mallorca ride atlas">
         <section class="map-panel" id="map-panel" aria-label="Relief map">
-          <div id="map" class="live-map" aria-label="Interactive 3D map of Mallorca and the six camp routes"></div>
+          <div id="map" class="live-map" aria-label="Interactive 3D map of Mallorca and the six camp routes" inert></div>
           <div id="fallback" class="fallback-host" aria-label="Static Mallorca route map"></div>
           <div class="map-vignette" aria-hidden="true"></div>
           <div class="map-heading" aria-hidden="true">
             <span>39.70° N · Mediterranean</span>
             <strong>ISLA DE MALLORCA</strong>
+          </div>
+          <div class="relief-key" aria-label="Elevation range shown by the relief map">
+            <span>Sea level</span><i aria-hidden="true"></i><strong>Puig Major · 1,445 m</strong>
           </div>
           <div class="route-key" id="route-key" aria-label="Ride colors"></div>
           <div class="map-status" id="map-status" role="status">
@@ -123,14 +128,16 @@ function shell(): void {
             <button type="button" role="tab" data-tab="rides">Rides</button>
             <button type="button" role="tab" data-tab="segments">Climbs</button>
             <button type="button" role="tab" data-tab="point">Point</button>
+            <button type="button" role="tab" data-tab="compare">Compare</button>
           </div>
           <div class="guide-scroll">
             <section class="guide-content" id="guide-content" role="tabpanel" tabindex="0"></section>
             <section class="profile-panel" id="profile-panel" aria-label="Elevation profile"></section>
             <footer class="guide-footer">
               <p><strong>Privacy:</strong> repeated camp-base approach and departure geometry is clipped. Ride totals still describe each full FIT file.</p>
+              <p><strong>Past-ride imports:</strong> FIT files are decoded in a same-origin browser worker. Raw bytes, routes and filenames are discarded; optional device storage contains derived segment summaries only.</p>
               <p>Orientation regions are approximate, not official boundaries. This is a ride-exploration view, not turn-by-turn navigation.</p>
-              <p class="source-line">Road context © OpenStreetMap contributors · tiles by OpenFreeMap · terrain <a href="https://mapterhorn.com/attribution" target="_blank" rel="noreferrer">© Mapterhorn</a></p>
+              <p class="source-line">Road and summit positions © OpenStreetMap contributors · summit elevations <a href="https://www.caib.es/" target="_blank" rel="noreferrer">Govern de les Illes Balears</a> · tiles by OpenFreeMap · terrain <a href="https://mapterhorn.com/attribution" target="_blank" rel="noreferrer">© Mapterhorn</a></p>
             </footer>
           </div>
         </aside>
@@ -166,6 +173,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   const rideById = (id: string | null) => data.rides.find((ride) => ride.rideId === id) ?? null;
   const segmentById = (id: string | null) => data.segments.find((segment) => segment.segmentId === id) ?? null;
   const pointById = (id: string | null) => data.rides.flatMap((ride) => ride.telemetrySamples).find((point) => point.sampleId === id) ?? null;
+  const summitById = (id: string | null) => MALLORCA_SUMMITS.find((summit) => summit.id === id) ?? null;
 
   const announce = (message: string) => {
     liveRegion.textContent = "";
@@ -178,7 +186,8 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
 
   const updateMapSelection = () => {
     mapRef.current?.updateSelection(state);
-    fallback.update(state);
+    mapRef.current?.selectSummit(state.selectedSummitId, false);
+    fallback.update(state, state.selectedSummitId);
   };
 
   const selectRide = (rideId: string, focus = true, commitHistory = true) => {
@@ -187,6 +196,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     state.selectedRideId = rideId;
     state.selectedSegmentId = null;
     state.selectedPointId = null;
+    state.selectedSummitId = null;
     state.tab = "rides";
     updateMapSelection();
     render();
@@ -201,6 +211,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     state.selectedRideId = segment.rideId;
     state.selectedSegmentId = segment.segmentId;
     state.selectedPointId = null;
+    state.selectedSummitId = null;
     state.tab = "segments";
     updateMapSelection();
     render();
@@ -215,6 +226,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     state.selectedRideId = point.rideId;
     state.selectedPointId = point.sampleId;
     state.selectedSegmentId = point.segmentId && segmentById(point.segmentId)?.matched ? point.segmentId : state.selectedSegmentId;
+    state.selectedSummitId = null;
     state.tab = "point";
     updateMapSelection();
     render();
@@ -238,6 +250,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     state.selectedPointId = null;
     state.previewRideId = null;
     state.tab = "island";
+    state.selectedSummitId = null;
     updateMapSelection();
     render();
     mapRef.current?.showIsland(!reduceMotion);
@@ -245,9 +258,64 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     announce("Map reset to the whole island and all six rides.");
   };
 
+  const selectSummit = (summitId: string, focus = true, commitHistory = true) => {
+    const summit = summitById(summitId);
+    if (!summit) return;
+    state.selectedSummitId = summit.id;
+    state.selectedRideId = null;
+    state.selectedSegmentId = null;
+    state.selectedPointId = null;
+    state.tab = "island";
+    updateMapSelection();
+    render();
+    mapRef.current?.selectSummit(summit.id, focus, !reduceMotion);
+    if (commitHistory) commit();
+    announce(`${summit.name}, ${summit.elevationM.toLocaleString("en")} metres, selected.`);
+  };
+
+  const historyExperience = createLocalHistoryExperience({
+    data,
+    announce,
+    onSummaryChange: ({ personalEffortCount }) => {
+      if (state.tab === "compare") guideCount.textContent = `${personalEffortCount} local`;
+    },
+    onSegmentSelect: (segmentId) => {
+      const segment = segmentById(segmentId);
+      state.selectedSummitId = null;
+      state.selectedPointId = null;
+      state.selectedSegmentId = segment?.segmentId ?? null;
+      state.selectedRideId = segment?.rideId ?? null;
+      updateMapSelection();
+      if (segment) mapRef.current?.fitSegment(segment, !reduceMotion);
+      guideTitle.textContent = segment?.campLabel ?? "Compare past climbs";
+      guideCount.textContent = `${historyExperience.personalEffortCount()} local`;
+      commit();
+    },
+  });
+
   const renderIsland = (): void => {
-    guideTitle.textContent = "Read the island";
-    guideCount.textContent = "06 rides";
+    const selectedSummit = summitById(state.selectedSummitId);
+    guideTitle.textContent = selectedSummit?.name ?? "Read the island";
+    guideCount.textContent = selectedSummit ? `${selectedSummit.elevationM.toLocaleString("en")} m` : "06 rides";
+    if (selectedSummit) {
+      const card = element("article", "selection-card selection-card--summit");
+      card.append(
+        element("p", "card-kicker", "Named summit · Serra de Tramuntana"),
+        element("h3", "", selectedSummit.name),
+        element("p", "summit-height", `${selectedSummit.elevationM.toLocaleString("en")} m`),
+        element("p", "selection-copy", selectedSummit.orientation),
+      );
+      const source = element("a", "summit-source", "Elevation source · Govern de les Illes Balears ↗");
+      source.href = selectedSummit.sources.elevation.url;
+      source.target = "_blank";
+      source.rel = "noreferrer";
+      const coordinates = element("a", "summit-source", "Summit position · OpenStreetMap ↗");
+      coordinates.href = selectedSummit.sources.coordinates.url;
+      coordinates.target = "_blank";
+      coordinates.rel = "noreferrer";
+      card.append(source, coordinates);
+      guideContent.append(card);
+    }
     const totalDistance = data.rides.reduce((sum, ride) => sum + (ride.summary.distanceKm ?? 0), 0);
     const totalAscent = data.rides.reduce((sum, ride) => sum + (ride.summary.ascentM ?? 0), 0);
     const intro = element("div", "editorial-intro");
@@ -261,6 +329,19 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       metric("Verified climbs", "15"),
       metric("Ride days", "6"),
     );
+    const summitTitle = element("h3", "section-title", "Tramuntana summits");
+    const summitList = element("div", "summit-index");
+    for (const summit of MALLORCA_SUMMITS) {
+      const control = button("summit-row", "");
+      control.dataset.summitId = summit.id;
+      control.setAttribute("aria-pressed", String(summit.id === state.selectedSummitId));
+      control.append(
+        element("span", "summit-row-mark", "▲"),
+        element("strong", "", summit.name),
+        element("span", "summit-row-height", `${summit.elevationM.toLocaleString("en")} m`),
+      );
+      summitList.append(control);
+    }
     const regionsTitle = element("h3", "section-title", "Orientation regions");
     const regions = element("div", "region-list");
     const regionData = [
@@ -284,7 +365,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       element("p", "", "Point grade is derived from neighbouring published FIT altitude and distance samples. It is smoothed for orientation and is not an instantaneous gradient."),
     );
     note.append(summary, copy);
-    guideContent.append(intro, weekMetrics, regionsTitle, regions, note);
+    guideContent.append(intro, weekMetrics, summitTitle, summitList, regionsTitle, regions, note);
   };
 
   const renderRides = (): void => {
@@ -564,6 +645,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   };
 
   const render = (): void => {
+    historyExperience.unmount();
     guideContent.replaceChildren();
     document.querySelectorAll<HTMLButtonElement>("[role=tab][data-tab]").forEach((tab) => {
       const active = tab.dataset.tab === state.tab;
@@ -572,16 +654,24 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     });
     terrainToggle.setAttribute("aria-pressed", String(state.terrain === "3d"));
     terrainToggle.querySelector("span:last-child")!.textContent = terrainLabel(state.terrain);
+    profilePanel.hidden = state.tab === "compare";
     if (state.tab === "island") renderIsland();
     if (state.tab === "rides") renderRides();
     if (state.tab === "segments") renderSegments();
     if (state.tab === "point") renderPoint();
-    renderProfile();
+    if (state.tab === "compare") {
+      guideTitle.textContent = "Compare past climbs";
+      guideCount.textContent = `${historyExperience.personalEffortCount()} local`;
+      historyExperience.mount(guideContent, state.selectedSegmentId);
+    } else {
+      renderProfile();
+    }
   };
 
   const fallback = new StaticMapFallback(document.querySelector<HTMLElement>("#fallback")!, data, (kind, id) => {
     if (kind === "ride") selectRide(id);
-    else selectSegment(id);
+    else if (kind === "segment") selectSegment(id);
+    else selectSummit(id);
   });
 
   document.querySelector<HTMLElement>("#route-key")!.replaceChildren(...data.rides.map((ride) => {
@@ -593,17 +683,22 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   }));
 
   guideContent.addEventListener("click", (event) => {
+    if (state.tab === "compare") return;
     const target = event.target instanceof Element ? event.target : null;
     const rideControl = target?.closest<HTMLButtonElement>("[data-ride-id]");
     if (rideControl?.dataset.rideId) selectRide(rideControl.dataset.rideId);
     const segmentControl = target?.closest<HTMLButtonElement>("[data-segment-id]");
     if (segmentControl?.dataset.segmentId) selectSegment(segmentControl.dataset.segmentId);
+    const summitControl = target?.closest<HTMLButtonElement>("[data-summit-id]");
+    if (summitControl?.dataset.summitId) selectSummit(summitControl.dataset.summitId);
   });
 
   const tabs = [...document.querySelectorAll<HTMLButtonElement>("[role=tab][data-tab]")];
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => {
       state.tab = tab.dataset.tab as GuideTab;
+      if (state.tab !== "island") state.selectedSummitId = null;
+      updateMapSelection();
       render();
       commit();
     });
@@ -637,7 +732,11 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     mapRef.current = new ReliefMap(document.querySelector<HTMLElement>("#map")!, data, state, {
       onReady: () => {
         mapPanel.dataset.mapReady = "true";
-        document.querySelector<HTMLElement>("#fallback")!.setAttribute("aria-hidden", "true");
+        const liveMap = document.querySelector<HTMLElement>("#map")!;
+        const fallbackHost = document.querySelector<HTMLElement>("#fallback")!;
+        liveMap.inert = false;
+        fallbackHost.inert = true;
+        fallbackHost.setAttribute("aria-hidden", "true");
       },
       onStatus: updateStatus,
       onRideClick: (rideId, coordinate) => {
@@ -647,6 +746,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
         state.selectedRideId = rideId;
         state.selectedSegmentId = null;
         state.selectedPointId = point?.sampleId ?? null;
+        state.selectedSummitId = null;
         state.tab = point ? "point" : "rides";
         updateMapSelection();
         render();
@@ -655,6 +755,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       },
       onSegmentClick: (segmentId) => selectSegment(segmentId),
       onPointClick: (pointId) => selectPoint(pointId, false),
+      onSummitClick: (summitId) => selectSummit(summitId),
       onCameraChange: () => {
         if (!mapRef.current) return;
         state.camera = cameraFromMap(mapRef.current.getCamera());
@@ -682,7 +783,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   });
   window.addEventListener("resize", () => mapRef.current?.resize(), { passive: true });
 
-  fallback.update(state);
+  fallback.update(state, state.selectedSummitId);
   render();
 }
 

@@ -1,6 +1,7 @@
 import type { AtlasData, AtlasState, CameraState, GuideTab, TerrainMode } from "./types";
+import { MALLORCA_SUMMITS } from "./mountains";
 
-const GUIDE_TABS: GuideTab[] = ["island", "rides", "segments", "point"];
+const GUIDE_TABS: GuideTab[] = ["island", "rides", "segments", "point", "compare"];
 
 export function defaultState(): AtlasState {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -8,6 +9,7 @@ export function defaultState(): AtlasState {
     selectedRideId: null,
     selectedSegmentId: null,
     selectedPointId: null,
+    selectedSummitId: null,
     previewRideId: null,
     terrain: reducedMotion ? "2d" : "3d",
     tab: "island",
@@ -34,6 +36,7 @@ export function stateFromHash(data: AtlasData, fallback: AtlasState): AtlasState
   const segmentIds = new Set(data.segments.map((segment) => segment.segmentId));
   const points = data.rides.flatMap((ride) => ride.telemetrySamples);
   const pointIds = new Set(points.map((point) => point.sampleId));
+  const summitIds = new Set<string>(MALLORCA_SUMMITS.map((summit) => summit.id));
   const segment = data.segments.find((entry) => entry.segmentId === params.get("segment"));
   const point = points.find((entry) => entry.sampleId === params.get("point"));
   let selectedRideId = rideIds.has(params.get("ride") ?? "") ? params.get("ride") : null;
@@ -41,15 +44,20 @@ export function stateFromHash(data: AtlasData, fallback: AtlasState): AtlasState
   const selectedPointId = pointIds.has(params.get("point") ?? "") ? params.get("point") : null;
   if (segment) selectedRideId = segment.rideId;
   if (point) selectedRideId = point.rideId;
+  const requestedSummitId = params.get("summit");
+  const selectedSummitId = !selectedRideId && !selectedSegmentId && !selectedPointId && summitIds.has(requestedSummitId ?? "")
+    ? requestedSummitId
+    : null;
   const terrainParam = params.get("terrain");
   const tabParam = params.get("tab") as GuideTab | null;
   return {
     selectedRideId,
     selectedSegmentId,
     selectedPointId,
+    selectedSummitId,
     previewRideId: null,
     terrain: terrainParam === "2d" || terrainParam === "3d" ? terrainParam : fallback.terrain,
-    tab: tabParam && GUIDE_TABS.includes(tabParam) ? tabParam : selectedPointId ? "point" : selectedSegmentId ? "segments" : fallback.tab,
+    tab: selectedSummitId ? "island" : tabParam && GUIDE_TABS.includes(tabParam) ? tabParam : selectedPointId ? "point" : selectedSegmentId ? "segments" : fallback.tab,
     camera: parseCamera(params.get("map")),
   };
 }
@@ -59,6 +67,7 @@ export function writeStateToHash(state: AtlasState, mode: "push" | "replace" = "
   if (state.selectedRideId) params.set("ride", state.selectedRideId);
   if (state.selectedSegmentId) params.set("segment", state.selectedSegmentId);
   if (state.selectedPointId) params.set("point", state.selectedPointId);
+  if (state.selectedSummitId) params.set("summit", state.selectedSummitId);
   if (state.terrain !== "3d") params.set("terrain", state.terrain);
   if (state.tab !== "island") params.set("tab", state.tab);
   if (state.camera) params.set("map", formatCamera(state.camera));

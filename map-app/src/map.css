@@ -211,6 +211,16 @@ a { color: inherit; }
 
 .live-map { z-index: 1; }
 
+/* MapLibre adds `.maplibregl-map { position: relative; }` at runtime. Keep the
+   renderer pinned to the stage instead of letting that rule collapse this
+   initially empty mount node to zero height. */
+.live-map.maplibregl-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .fallback-host {
   z-index: 2;
   display: grid;
@@ -230,16 +240,7 @@ a { color: inherit; }
 }
 
 .fallback-kicker {
-  position: absolute;
-  top: 78px;
-  left: 24px;
-  z-index: 1;
-  margin: 0;
-  color: rgba(246, 239, 213, 0.65);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .fallback-map {
@@ -247,6 +248,15 @@ a { color: inherit; }
   height: 100%;
   max-height: 720px;
   overflow: visible;
+}
+
+.fallback-terrain {
+  opacity: 0.98;
+  pointer-events: none;
+}
+
+.fallback-boundary-outline path {
+  vector-effect: non-scaling-stroke;
 }
 
 .fallback-route-casing,
@@ -292,6 +302,26 @@ a { color: inherit; }
   opacity: 0.76;
 }
 
+.fallback-summit {
+  cursor: pointer;
+  outline: none;
+}
+
+.fallback-summit-halo { fill: rgba(255, 242, 198, 0.12); }
+.fallback-summit-peak { fill: #f7e6a8; stroke: #071719; stroke-width: 2px; paint-order: stroke; }
+.fallback-summit text {
+  fill: #fff4cc;
+  stroke: #071719;
+  stroke-width: 3px;
+  paint-order: stroke;
+  font: 700 10px Inter, sans-serif;
+}
+.fallback-summit .fallback-summit-elevation { fill: #d6c890; font-size: 9px; font-weight: 650; }
+.fallback-summit:hover .fallback-summit-halo,
+.fallback-summit:focus-visible .fallback-summit-halo,
+.fallback-summit.is-selected .fallback-summit-halo { fill: rgba(255, 242, 198, 0.38); }
+.fallback-summit.is-selected .fallback-summit-peak { fill: #ff7657; }
+
 .fallback-selected-point-halo { fill: var(--cream); opacity: 0.3; }
 .fallback-selected-point { fill: var(--cream); stroke: #081719; stroke-width: 2; }
 
@@ -330,12 +360,88 @@ a { color: inherit; }
   letter-spacing: 0.09em;
 }
 
+.relief-key {
+  position: absolute;
+  z-index: 5;
+  top: 86px;
+  left: 26px;
+  display: grid;
+  grid-template-columns: auto 52px auto;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255, 246, 216, 0.72);
+  font-size: 0.55rem;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 9px #041214;
+  pointer-events: none;
+}
+
+.relief-key i {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1d4c4f, #67815f 55%, #f3dd99);
+  box-shadow: 0 0 0 1px rgba(255, 247, 218, 0.22);
+}
+
+.relief-key strong { color: #fff2c6; font-weight: 760; }
+
+.summit-marker {
+  position: absolute;
+  display: block;
+  width: max-content;
+  min-width: 44px;
+  min-height: 62px;
+  padding: 0 0 24px;
+  border: 0;
+  background: transparent;
+  color: #fff6d7;
+  cursor: pointer;
+  text-align: left;
+}
+
+.summit-marker.is-primary { z-index: 4; }
+.summit-marker.is-selected,
+.summit-marker:hover,
+.summit-marker:focus-visible { z-index: 8; }
+
+.summit-marker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 35px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 246, 215, 0.48);
+  border-radius: 8px;
+  background: rgba(47, 57, 84, 0.84);
+  box-shadow: 0 7px 19px rgba(0, 14, 17, 0.34);
+  backdrop-filter: blur(10px);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.summit-marker-card strong { font: 700 10px/1.12 Inter, sans-serif; white-space: nowrap; }
+.summit-marker-card small { color: rgba(255, 246, 215, 0.76); font: 650 9px/1 Inter, sans-serif; }
+.summit-marker-stem { position: absolute; left: 50%; bottom: 6px; width: 1px; height: 19px; background: rgba(255, 246, 215, 0.84); transform: translateX(-50%); }
+.summit-marker-anchor { position: absolute; left: 50%; bottom: 0; width: 8px; height: 8px; border: 2px solid #fff6d7; border-radius: 50%; background: #6f74a9; box-shadow: 0 2px 7px #041214; transform: translateX(-50%); }
+.summit-marker:hover .summit-marker-card,
+.summit-marker:focus-visible .summit-marker-card,
+.summit-marker.is-selected .summit-marker-card { background: #bd684f; box-shadow: 0 0 0 3px rgba(255, 246, 215, 0.25), 0 9px 23px rgba(0, 14, 17, 0.4); transform: translateY(-2px); }
+.summit-marker.is-selected .summit-marker-anchor { background: #ff7657; box-shadow: 0 0 0 4px rgba(255, 246, 215, 0.22), 0 2px 7px #041214; }
+.summit-marker:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.maplibregl-marker-covered .summit-marker { opacity: 0.18; }
+.summit-marker:not(.is-primary):not(.is-selected):not(.is-detailed) .summit-marker-card { display: none; }
+.summit-marker:not(.is-primary):not(.is-selected):not(.is-detailed) { width: 44px; min-width: 44px; height: 58px; transform: translateX(-18px); }
+.fallback-summit:not(.is-primary):not(.is-selected) text { display: none; }
+.summit-marker:hover .summit-marker-card,
+.summit-marker:focus-visible .summit-marker-card { display: flex; }
+.fallback-summit:hover text,
+.fallback-summit:focus-visible text { display: block; }
+
 .route-key {
   position: absolute;
   z-index: 5;
   left: 22px;
   right: 22px;
-  bottom: 24px;
+  bottom: 44px;
   display: flex;
   gap: 8px 15px;
   flex-wrap: wrap;
@@ -440,7 +546,7 @@ a { color: inherit; }
 
 .guide-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -523,6 +629,28 @@ a { color: inherit; }
   text-transform: uppercase;
 }
 
+.summit-index { border-top: 1px solid var(--hairline); }
+.summit-row {
+  width: 100%;
+  min-height: 45px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.summit-row:hover,
+.summit-row[aria-pressed="true"] { background: rgba(25, 51, 45, 0.055); }
+.summit-row-mark { color: #6f74a9; font-size: 0.7rem; }
+.summit-row strong { font: 600 0.79rem var(--serif); }
+.summit-row-height { color: #707a73; font: italic 0.72rem var(--serif); }
+
 .region-list { border-top: 1px solid var(--hairline); }
 
 .region-row {
@@ -556,6 +684,30 @@ a { color: inherit; }
 .selection-card h3 { margin: 7px 0 0; font: 500 1.56rem/1.05 var(--serif); letter-spacing: -0.025em; }
 .selection-copy,
 .segment-subtitle { margin: 10px 0 0; color: #68716c; font: italic 0.83rem/1.42 var(--serif); }
+
+.summit-height { margin: 8px 0 0; color: #3f574e; font: 500 2rem/1 var(--serif); }
+.summit-source { display: block; width: fit-content; margin-top: 10px; color: #395b50; font-size: 0.67rem; font-weight: 800; text-underline-offset: 3px; }
+
+.comparison-review-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(760px, calc(100dvh - 32px));
+  padding: 25px;
+  overflow: auto;
+  border: 1px solid rgba(22, 45, 40, 0.28);
+  border-radius: 12px;
+  background: var(--paper-bright);
+  color: var(--text);
+  box-shadow: 0 24px 90px rgba(0, 10, 12, 0.56);
+}
+.comparison-review-dialog::backdrop { background: rgba(2, 13, 15, 0.74); backdrop-filter: blur(4px); }
+.comparison-review-dialog h2 { margin: 7px 0 0; font: 500 1.8rem/1.06 var(--serif); }
+.comparison-dialog-copy { color: #65706a; font: italic 0.87rem/1.5 var(--serif); }
+.comparison-review-list { display: grid; gap: 10px; padding: 0; margin: 20px 0; list-style: none; }
+.comparison-review-list li { display: grid; gap: 5px; padding: 13px; border: 1px solid var(--hairline); }
+.comparison-review-list strong { font: 600 1rem var(--serif); }
+.comparison-review-list span { color: #56635e; font-size: 0.73rem; }
+.comparison-review-list small { color: #7b7f78; font-size: 0.64rem; line-height: 1.4; }
+.comparison-review-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
 
 .data-caveat {
   margin: 13px 0 0;
@@ -752,20 +904,33 @@ summary:focus-visible {
   .profile-panel,
   .guide-footer { padding-left: 20px; padding-right: 20px; }
   .map-heading { top: 16px; left: 16px; }
+  .relief-key { top: 70px; left: 16px; grid-template-columns: auto 34px auto; font-size: 0.49rem; }
   .map-status { top: 14px; right: 49px; max-width: 48vw; }
   .map-status span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .fallback-kicker { top: 63px; left: 17px; }
   .fallback-host { padding: 22px 7px 15px; }
-  .route-key { left: 14px; right: 14px; bottom: 18px; gap: 5px 9px; }
+  .route-key { left: 14px; right: 14px; bottom: 72px; gap: 5px 9px; }
   .key-item { font-size: 0; }
   .key-item i { width: 21px; height: 4px; }
-  .gesture-hint { bottom: 44px; max-width: 90%; font-size: 0.54rem; }
-  .maplibregl-ctrl-bottom-left { bottom: 34px !important; }
+  .gesture-hint {
+    right: 12px;
+    bottom: 84px;
+    left: auto;
+    max-width: calc(100% - 108px);
+    transform: none;
+    font-size: 0.52rem;
+  }
+  .maplibregl-ctrl-bottom-left { bottom: 88px !important; }
   .maplibregl-ctrl-attrib { font-size: 9px !important; max-width: 80vw; }
   .maplibregl-ctrl-top-right { top: 48px !important; }
   .region-row p { font-size: 0.76rem; }
   .ride-card { min-height: 70px; }
   .segment-row { min-height: 50px; }
+  .summit-marker:not(.is-primary):not(.is-selected):not(.is-detailed) .summit-marker-stem { height: 12px; }
+  .summit-marker[data-summit-id="puig-tomir"]:not(.is-selected):not(.is-detailed) { z-index: 1; }
+  .summit-marker[data-summit-id="puig-tomir"]:not(.is-selected):not(.is-detailed) .summit-marker-card { display: none; }
+  .summit-marker-card { padding: 5px 7px; }
+  .summit-marker-card strong { font-size: 9px; }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
@@ -794,7 +959,7 @@ summary:focus-visible {
   .guide-content { padding: 16px 18px 20px; }
   .profile-panel,
   .guide-footer { padding-left: 18px; padding-right: 18px; }
-  .route-key { bottom: 15px; }
+  .route-key { bottom: 38px; }
   .gesture-hint { display: none; }
   .maplibregl-ctrl-bottom-left { bottom: 34px !important; }
 }

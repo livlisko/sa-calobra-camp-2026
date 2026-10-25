@@ -2,6 +2,8 @@ import * as maplibregl from "maplibre-gl";
 import type { MapLayerMouseEvent, MapMouseEvent } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
+import { MALLORCA_SUMMITS } from "./mountains";
+import type { MountainSummit } from "./mountains";
 import type { AtlasData, AtlasState, Bounds, CameraState, Position, Ride, Segment, TelemetrySample, TerrainMode } from "./types";
 
 // MapLibre's ESM build otherwise derives a sibling worker name from the
@@ -29,6 +31,7 @@ export interface ReliefMapEvents {
   onRideClick: (rideId: string, position: Position) => void;
   onSegmentClick: (segmentId: string) => void;
   onPointClick: (pointId: string) => void;
+  onSummitClick: (summitId: string) => void;
   onCameraChange: () => void;
 }
 
@@ -151,6 +154,8 @@ export class ReliefMap {
   private selectedRideId: string | null = null;
   private selectedSegmentId: string | null = null;
   private selectedPointId: string | null = null;
+  private selectedSummitId: string | null = null;
+  private summitMarkers = new Map<string, { marker: maplibregl.Marker; button: HTMLButtonElement }>();
   private liveCheckAttempts = 0;
   private loadTimeout: number;
 
@@ -160,6 +165,7 @@ export class ReliefMap {
     initialState: AtlasState,
     private readonly events: ReliefMapEvents,
   ) {
+    this.selectedSummitId = initialState.selectedSummitId;
     const camera = initialState.camera;
     this.map = new maplibregl.Map({
       container,
@@ -196,12 +202,14 @@ export class ReliefMap {
     this.map.once("load", () => this.onStyleLoad(initialState));
     this.map.on("error", (event) => this.onMapError(event.error));
     this.map.on("moveend", () => {
+      this.updateSummitDensity();
       if (this.ready) this.events.onCameraChange();
     });
   }
 
   private onStyleLoad(initialState: AtlasState): void {
     if (this.destroyed) return;
+    this.restyleBase();
     const styleLayers = this.map.getStyle().layers ?? [];
     const firstLabel = styleLayers.find((layer) => layer.type === "symbol" && Boolean(layer.layout?.["text-field"]))?.id;
     this.map.addSource("mallorca-terrain", {
@@ -225,9 +233,9 @@ export class ReliefMap {
         source: "mallorca-hillshade-dem",
         paint: {
           "hillshade-shadow-color": "#092326",
-          "hillshade-highlight-color": "#fbefd0",
-          "hillshade-accent-color": "#6c806b",
-          "hillshade-exaggeration": 0.46,
+          "hillshade-highlight-color": "#fff0c7",
+          "hillshade-accent-color": "#6d866d",
+          "hillshade-exaggeration": 0.58,
         },
       },
       firstLabel,
@@ -263,12 +271,10 @@ export class ReliefMap {
         paint: {
           "line-color": ["get", "color"],
           "line-width": [
-            "case",
-            ["boolean", ["feature-state", "selected"], false],
-            ["interpolate", ["linear"], ["zoom"], 7, 3.5, 10, 6.2, 13, 9],
-            ["boolean", ["feature-state", "dimmed"], false],
-            ["interpolate", ["linear"], ["zoom"], 7, 1.3, 10, 2.2, 13, 3.3],
-            ["interpolate", ["linear"], ["zoom"], 7, 2.4, 10, 4.2, 13, 6],
+            "interpolate", ["linear"], ["zoom"],
+            7, ["case", ["boolean", ["feature-state", "selected"], false], 3.5, ["boolean", ["feature-state", "dimmed"], false], 1.3, 2.4],
+            10, ["case", ["boolean", ["feature-state", "selected"], false], 6.2, ["boolean", ["feature-state", "dimmed"], false], 2.2, 4.2],
+            13, ["case", ["boolean", ["feature-state", "selected"], false], 9, ["boolean", ["feature-state", "dimmed"], false], 3.3, 6],
           ],
           "line-opacity": [
             "case",
@@ -304,10 +310,9 @@ export class ReliefMap {
         paint: {
           "line-color": ["case", ["boolean", ["feature-state", "selected"], false], "#fff6cf", "#edc767"],
           "line-width": [
-            "case",
-            ["boolean", ["feature-state", "selected"], false],
-            ["interpolate", ["linear"], ["zoom"], 8, 4, 12, 8.5],
-            ["interpolate", ["linear"], ["zoom"], 8, 2.2, 12, 5],
+            "interpolate", ["linear"], ["zoom"],
+            8, ["case", ["boolean", ["feature-state", "selected"], false], 4, 2.2],
+            12, ["case", ["boolean", ["feature-state", "selected"], false], 8.5, 5],
           ],
           "line-opacity": ["case", ["boolean", ["feature-state", "dimmed"], false], 0.06, 0.96],
         },
@@ -397,11 +402,77 @@ export class ReliefMap {
       },
     });
 
+    this.addSummitMarkers();
+
     this.bindInteractions();
     this.setTerrain(initialState.terrain, false);
     this.updateSelection(initialState);
     if (!initialState.camera) this.showIsland(false);
     this.map.once("idle", () => this.verifyLiveFrame());
+  }
+
+  private restyleBase(): void {
+    for (const layer of this.map.getStyle().layers ?? []) {
+      const sourceLayer = "source-layer" in layer ? layer["source-layer"] : undefined;
+      try {
+        if (layer.type === "background") this.map.setPaintProperty(layer.id, "background-color", "#0a2528");
+        if (layer.type === "fill" && sourceLayer === "water") {
+          this.map.setPaintProperty(layer.id, "fill-color", "#0a3035");
+          this.map.setPaintProperty(layer.id, "fill-opacity", 0.96);
+        }
+        if (layer.type === "line" && sourceLayer === "waterway") {
+          this.map.setPaintProperty(layer.id, "line-color", "#39777a");
+        }
+        if (layer.type === "fill" && sourceLayer === "park") {
+          this.map.setPaintProperty(layer.id, "fill-color", "#41664d");
+          this.map.setPaintProperty(layer.id, "fill-opacity", 0.42);
+        }
+        if (layer.type === "fill" && sourceLayer === "landcover" && /wood|forest/i.test(layer.id)) {
+          this.map.setPaintProperty(layer.id, "fill-color", "#355d49");
+          this.map.setPaintProperty(layer.id, "fill-opacity", 0.52);
+        }
+      } catch {
+        // Some style layers do not expose every paint property across style versions.
+      }
+    }
+  }
+
+  private addSummitMarkers(): void {
+    for (const summit of MALLORCA_SUMMITS) {
+      const selected = summit.id === this.selectedSummitId;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `summit-marker${summit.id === "puig-major" || summit.id === "puig-tomir" || summit.id === "puig-de-galatzo" ? " is-primary" : ""}${selected ? " is-selected" : ""}`;
+      button.dataset.summitId = summit.id;
+      button.setAttribute("aria-pressed", String(selected));
+      button.setAttribute("aria-label", `Open ${summit.name}, ${summit.elevationM.toLocaleString("en")} metres`);
+      const card = document.createElement("span");
+      card.className = "summit-marker-card";
+      const name = document.createElement("strong");
+      name.textContent = summit.name;
+      const elevation = document.createElement("small");
+      elevation.textContent = `${summit.elevationM.toLocaleString("en")} m`;
+      card.append(name, elevation);
+      const stem = document.createElement("span");
+      stem.className = "summit-marker-stem";
+      stem.setAttribute("aria-hidden", "true");
+      const anchor = document.createElement("span");
+      anchor.className = "summit-marker-anchor";
+      anchor.setAttribute("aria-hidden", "true");
+      button.append(card, stem, anchor);
+      button.addEventListener("click", () => this.events.onSummitClick(summit.id));
+      const marker = new maplibregl.Marker({ element: button, anchor: "bottom", opacityWhenCovered: 0.18 })
+        .setLngLat(summit.coordinates)
+        .addTo(this.map);
+      this.summitMarkers.set(summit.id, { marker, button });
+    }
+    this.updateSummitDensity();
+  }
+
+  private updateSummitDensity(): void {
+    const threshold = window.matchMedia("(max-width: 760px)").matches ? 10.2 : 9.45;
+    const detailed = this.map.getZoom() >= threshold;
+    for (const marker of this.summitMarkers.values()) marker.button.classList.toggle("is-detailed", detailed);
   }
 
   private bindInteractions(): void {
@@ -466,7 +537,13 @@ export class ReliefMap {
           .filter((rideId): rideId is string => typeof rideId === "string"),
       );
       const renderedRoutes = this.map.queryRenderedFeatures({ layers: ["camp-routes-line"] });
-      const routesReady = sourceRideIds.size === this.data.rides.length && renderedRoutes.length > 0;
+      // `queryRenderedFeatures()` can report zero for terrain-draped GeoJSON
+      // lines in some WebGL implementations even when the layer is visibly
+      // drawn. Verify the complete source and its active style layer instead;
+      // the canvas readback above still guards against a blank renderer.
+      const sourceLoaded = this.map.isSourceLoaded("camp-routes");
+      const routeLayerReady = Boolean(this.map.getLayer("camp-routes-line"));
+      const routesReady = sourceRideIds.size === this.data.rides.length && sourceLoaded && routeLayerReady;
       if (nonblank && routesReady) {
         this.ready = true;
         window.clearTimeout(this.loadTimeout);
@@ -478,8 +555,9 @@ export class ReliefMap {
       if (this.liveCheckAttempts < 5) {
         window.setTimeout(() => this.verifyLiveFrame(), 500);
       } else {
+        const campLayerIds = (this.map.getStyle().layers ?? []).map((layer) => layer.id).filter((id) => id.startsWith("camp-"));
         console.warn(
-          `Mallorca live map verification did not pass: nonblank=${nonblank}, sourceRideCount=${sourceRideIds.size}, renderedRouteCount=${renderedRoutes.length}.`,
+          `Mallorca live map verification did not pass: nonblank=${nonblank}, sourceRideCount=${sourceRideIds.size}, sourceLoaded=${sourceLoaded}, routeLayerReady=${routeLayerReady}, renderedRouteCount=${renderedRoutes.length}, campLayers=${campLayerIds.join(",")}.`,
         );
         this.events.onStatus("Live map could not be verified. The static route map remains available.", "warning");
       }
@@ -488,6 +566,8 @@ export class ReliefMap {
 
   private onMapError(error: { message?: string } | undefined): void {
     const message = error?.message ?? "Unknown map error";
+    if (/camp-(?:routes|segments)-line/i.test(message)) console.warn(`Mallorca route layer error: ${message}`);
+    if (/terrain|dem|mapterhorn/i.test(message)) console.warn(`Mallorca terrain error: ${message}`);
     if (/terrain|dem|mapterhorn/i.test(message) && this.map.isStyleLoaded()) {
       this.events.onStatus("Terrain tiles are unavailable; routes remain on the 2D map.", "warning");
       return;
@@ -541,7 +621,7 @@ export class ReliefMap {
   setTerrain(mode: TerrainMode, animate = true): void {
     if (!this.map.getSource("mallorca-terrain")) return;
     if (mode === "3d") {
-      this.map.setTerrain({ source: "mallorca-terrain", exaggeration: 1.14 });
+      this.map.setTerrain({ source: "mallorca-terrain", exaggeration: 1.2 });
       this.moveCamera({ pitch: Math.max(48, this.map.getPitch()), bearing: this.map.getBearing() || -8 }, animate);
     } else {
       this.map.setTerrain(null);
@@ -571,6 +651,26 @@ export class ReliefMap {
 
   focusPoint(point: TelemetrySample, animate = true): void {
     this.moveCamera({ center: point.coordinate, zoom: Math.max(12.3, this.map.getZoom()), pitch: this.map.getTerrain() ? 58 : 0 }, animate);
+  }
+
+  selectSummit(summitId: string | null, focus = false, animate = true): void {
+    this.selectedSummitId = summitId;
+    for (const [id, marker] of this.summitMarkers) {
+      const selected = id === summitId;
+      marker.button.classList.toggle("is-selected", selected);
+      marker.button.setAttribute("aria-pressed", String(selected));
+    }
+    if (!focus || !summitId) return;
+    const summit: MountainSummit | undefined = MALLORCA_SUMMITS.find((entry) => entry.id === summitId);
+    if (!summit) return;
+    const mobile = window.matchMedia("(max-width: 760px)").matches;
+    this.moveCamera({
+      center: summit.coordinates,
+      zoom: mobile ? 10.2 : 10.7,
+      pitch: this.map.getTerrain() ? (mobile ? 54 : 64) : 0,
+      bearing: this.map.getTerrain() ? 34 : 0,
+      offset: mobile ? [0, -20] : [-110, 0],
+    }, animate);
   }
 
   restoreCamera(camera: CameraState): void {
