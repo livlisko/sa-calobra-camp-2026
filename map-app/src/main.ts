@@ -160,6 +160,8 @@ function renderLoadingError(error: unknown): void {
 
 function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: ReliefMap | null }): void {
   const guideContent = document.querySelector<HTMLElement>("#guide-content")!;
+  const guideScroll = document.querySelector<HTMLElement>(".guide-scroll")!;
+  const atlasGuide = document.querySelector<HTMLElement>("#atlas-guide")!;
   const profilePanel = document.querySelector<HTMLElement>("#profile-panel")!;
   const guideTitle = document.querySelector<HTMLElement>("#guide-title")!;
   const guideCount = document.querySelector<HTMLElement>("#guide-count")!;
@@ -641,7 +643,24 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     profilePanel.append(svg);
   };
 
+  let renderedViewKey = "";
+  const viewKey = (): string => [
+    state.tab,
+    state.selectedRideId ?? "",
+    state.tab === "segments" ? state.selectedSegmentId ?? "" : "",
+    state.tab === "island" ? state.selectedSummitId ?? "" : "",
+  ].join(":");
+
+  const resetGuidePosition = (): void => {
+    guideScroll.scrollTop = 0;
+    if (!window.matchMedia("(max-width: 840px) and (orientation: portrait)").matches) return;
+    const guideTop = Math.max(0, atlasGuide.getBoundingClientRect().top + window.scrollY);
+    if (window.scrollY > guideTop + 8) window.scrollTo({ top: guideTop, behavior: "auto" });
+  };
+
   const render = (): void => {
+    const nextViewKey = viewKey();
+    const shouldResetGuide = nextViewKey !== renderedViewKey;
     historyExperience.unmount();
     guideContent.replaceChildren();
     document.querySelectorAll<HTMLButtonElement>("[role=tab][data-tab]").forEach((tab) => {
@@ -663,6 +682,8 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     } else {
       renderProfile();
     }
+    if (shouldResetGuide) resetGuidePosition();
+    renderedViewKey = nextViewKey;
   };
 
   const fallback = new StaticMapFallback(document.querySelector<HTMLElement>("#fallback")!, data, (kind, id) => {

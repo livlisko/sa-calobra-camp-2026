@@ -135,8 +135,12 @@ function placeFeatures(data: AtlasData): FeatureCollection {
   };
 }
 
+function usesCompactMapLayout(): boolean {
+  return window.matchMedia("(max-width: 760px), (max-width: 840px) and (orientation: portrait)").matches;
+}
+
 function mapPadding(): maplibregl.PaddingOptions {
-  const narrow = window.matchMedia("(max-width: 760px)").matches;
+  const narrow = usesCompactMapLayout();
   return narrow
     ? { top: 82, right: 28, bottom: 92, left: 28 }
     : { top: 100, right: 52, bottom: 88, left: 52 };
@@ -503,7 +507,7 @@ export class ReliefMap {
   }
 
   private updateSummitDensity(): void {
-    const threshold = window.matchMedia("(max-width: 760px)").matches ? 10.2 : 9.45;
+    const threshold = usesCompactMapLayout() ? 10.2 : 9.45;
     const detailed = this.map.getZoom() >= threshold;
     for (const marker of this.summitMarkers.values()) marker.button.classList.toggle("is-detailed", detailed);
   }
@@ -696,7 +700,7 @@ export class ReliefMap {
     if (!focus || !summitId) return;
     const summit: MountainSummit | undefined = MALLORCA_SUMMITS.find((entry) => entry.id === summitId);
     if (!summit) return;
-    const mobile = window.matchMedia("(max-width: 760px)").matches;
+    const mobile = usesCompactMapLayout();
     this.moveCamera({
       center: summit.coordinates,
       zoom: mobile ? 10.2 : 10.7,

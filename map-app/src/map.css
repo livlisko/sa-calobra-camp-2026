@@ -447,7 +447,7 @@ a { color: inherit; }
   position: absolute;
   z-index: 8;
   top: 22px;
-  right: 58px;
+  right: 64px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -810,7 +810,7 @@ a { color: inherit; }
 
 .maplibregl-canvas:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 .maplibregl-ctrl-group { overflow: hidden; border-radius: 6px !important; background: rgba(242, 238, 219, 0.94) !important; box-shadow: 0 3px 14px rgba(0, 12, 14, 0.32) !important; }
-.maplibregl-ctrl-group button { width: 34px !important; height: 34px !important; }
+.maplibregl-ctrl-group button { width: 44px !important; height: 44px !important; }
 .maplibregl-ctrl-attrib { border-radius: 4px 0 0 !important; background: rgba(242, 238, 219, 0.88) !important; color: #172a2a !important; }
 .maplibregl-ctrl-attrib a { color: #1a4a43 !important; }
 .maplibregl-ctrl-scale { border-color: rgba(255, 248, 220, 0.75) !important; color: rgba(255, 248, 220, 0.9) !important; text-shadow: 0 1px 3px #001011; }
@@ -834,14 +834,20 @@ summary:focus-visible {
 .load-error p:not(.eyebrow),
 .noscript { color: #bdc9c0; line-height: 1.55; }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .masthead-copy { grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1fr); column-gap: 32px; }
   .atlas-stage { grid-template-columns: minmax(0, 1fr) 344px; }
   .route-key { gap: 6px 11px; }
   .key-item { font-size: 0.57rem; }
 }
 
-@media (max-width: 760px) and (orientation: portrait) {
+@media (min-width: 761px) and (max-width: 1100px) and (min-height: 501px) {
+  .route-key { bottom: 76px; }
+  .gesture-hint { display: none; }
+  .maplibregl-ctrl-bottom-left { bottom: 76px !important; }
+}
+
+@media (max-width: 840px) and (orientation: portrait) {
   html,
   body,
   #app { height: auto; min-height: 100%; }
@@ -865,7 +871,7 @@ summary:focus-visible {
   .masthead h1 { margin-top: 5px; font-size: clamp(2.5rem, 14vw, 4.4rem); line-height: 0.79; }
   .lede { margin-top: 7px; font-size: 0.95rem; line-height: 1.35; }
   .masthead-actions { margin-top: 15px; }
-  .utility-button { min-height: 42px; flex: 1; justify-content: center; }
+  .utility-button { min-height: 44px; flex: 1; justify-content: center; }
   .atlas-stage { display: block; height: auto; min-height: 0; }
   .map-panel { height: 54vh; height: 54dvh; min-height: 410px; max-height: 560px; }
   .atlas-guide {
@@ -887,7 +893,7 @@ summary:focus-visible {
   .guide-footer { padding-left: 20px; padding-right: 20px; }
   .map-heading { top: 16px; left: 16px; }
   .relief-key { top: 70px; left: 16px; grid-template-columns: auto 34px auto; font-size: 0.49rem; }
-  .map-status { top: 14px; right: 49px; max-width: 48vw; }
+  .map-status { top: 14px; right: 64px; max-width: 48vw; }
   .map-status span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .fallback-kicker { top: 63px; left: 17px; }
   .fallback-host { padding: 22px 7px 15px; }
@@ -895,6 +901,7 @@ summary:focus-visible {
   .key-item { font-size: 0; }
   .key-item i { width: 21px; height: 4px; }
   .gesture-hint {
+    display: block;
     right: 12px;
     bottom: 84px;
     left: auto;
@@ -920,7 +927,7 @@ summary:focus-visible {
     min-height: 74px;
     height: 74px;
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 8px max(16px, env(safe-area-inset-left)) 9px;
+    padding: 8px max(16px, env(safe-area-inset-right)) 9px max(16px, env(safe-area-inset-left));
   }
   .masthead-copy {
     display: grid;
@@ -932,18 +939,20 @@ summary:focus-visible {
   .masthead .eyebrow { display: none; }
   .masthead h1 { font-size: 1.65rem; line-height: 0.8; white-space: nowrap; }
   .lede { font-size: 0.79rem; line-height: 1.25; }
-  .utility-button { min-height: 38px; padding: 0 10px; }
+  .utility-button { min-height: 44px; padding: 0 10px; }
   .atlas-stage { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(295px, 38vw); }
   .map-panel { min-height: 0; }
   .guide-topline { padding: 13px 18px 10px; }
   .guide-topline h2 { font-size: 1.35rem; margin-top: 3px; }
-  .guide-tabs button { min-height: 40px; font-size: 0.59rem; }
+  .guide-tabs button { min-height: 44px; font-size: 0.59rem; }
   .guide-content { padding: 16px 18px 20px; }
   .profile-panel,
   .guide-footer { padding-left: 18px; padding-right: 18px; }
-  .route-key { bottom: 38px; }
+  .route-key { bottom: 76px; gap: 5px 9px; }
+  .key-item { font-size: 0; }
+  .key-item i { width: 21px; height: 4px; }
   .gesture-hint { display: none; }
-  .maplibregl-ctrl-bottom-left { bottom: 34px !important; }
+  .maplibregl-ctrl-bottom-left { bottom: 76px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
