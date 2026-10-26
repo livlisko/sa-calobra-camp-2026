@@ -841,7 +841,7 @@ summary:focus-visible {
   .key-item { font-size: 0.57rem; }
 }
 
-@media (min-width: 761px) and (max-width: 1100px) and (min-height: 501px) {
+@media (min-width: 761px) and (max-width: 1180px) and (min-height: 501px) {
   .route-key { bottom: 76px; }
   .gesture-hint { display: none; }
   .maplibregl-ctrl-bottom-left { bottom: 76px !important; }
