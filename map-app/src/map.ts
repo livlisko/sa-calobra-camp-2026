@@ -1,5 +1,5 @@
 import * as maplibregl from "maplibre-gl";
-import type { MapLayerMouseEvent, MapMouseEvent } from "maplibre-gl";
+import type { ExpressionSpecification, MapLayerMouseEvent, MapMouseEvent } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { MALLORCA_SUMMITS } from "./mountains";
@@ -430,6 +430,39 @@ export class ReliefMap {
         if (layer.type === "fill" && sourceLayer === "landcover" && /wood|forest/i.test(layer.id)) {
           this.map.setPaintProperty(layer.id, "fill-color", "#355d49");
           this.map.setPaintProperty(layer.id, "fill-opacity", 0.52);
+        }
+        if (
+          layer.type === "line" &&
+          sourceLayer === "transportation" &&
+          /^(road|tunnel|bridge)_/i.test(layer.id) &&
+          !/(rail|hatching|oneway)/i.test(layer.id)
+        ) {
+          const layerId = layer.id.toLowerCase();
+          const isCasing = layerId.endsWith("_casing");
+          const context = layerId.startsWith("tunnel_") ? "tunnel" : layerId.startsWith("bridge_") ? "bridge" : "road";
+          const originalOpacity = this.map.getPaintProperty(layer.id, "line-opacity");
+          const baseOpacity = typeof originalOpacity === "number"
+            ? originalOpacity
+            : Array.isArray(originalOpacity)
+              ? originalOpacity as ExpressionSpecification
+              : 1;
+
+          if (isCasing) {
+            const opacity = { road: 0.52, tunnel: 0.36, bridge: 0.58 }[context];
+            this.map.setPaintProperty(layer.id, "line-color", "#153236");
+            this.map.setPaintProperty(layer.id, "line-opacity", ["*", baseOpacity, opacity]);
+          } else {
+            const isMajor = /(?:motorway|trunk_primary)$/.test(layerId) && !/motorway_link$/.test(layerId);
+            const isSecondary = /(?:secondary_tertiary|motorway_link|_link)$/.test(layerId);
+            const color = isMajor ? "#a6b2ac" : isSecondary ? "#8d9e97" : "#738680";
+            const opacity = isMajor
+              ? { road: 0.48, tunnel: 0.32, bridge: 0.54 }[context]
+              : isSecondary
+                ? { road: 0.36, tunnel: 0.25, bridge: 0.42 }[context]
+                : { road: 0.22, tunnel: 0.15, bridge: 0.27 }[context];
+            this.map.setPaintProperty(layer.id, "line-color", color);
+            this.map.setPaintProperty(layer.id, "line-opacity", ["*", baseOpacity, opacity]);
+          }
         }
       } catch {
         // Some style layers do not expose every paint property across style versions.
