@@ -23,10 +23,32 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       if (!segments.length) await expect(group).toContainText("No official camp KOM segment");
       const maxKm = Math.max(...ride.telemetrySamples.map(p => p.distanceKm));
       for (const segment of segments) {
+        const row = group.getByRole("listitem").filter({ has: page.getByText(segment.campLabel, { exact: true }) });
+        const rank = segment.reportedResult;
+        const different = rank && String(rank.stravaSegmentId) !== String(segment.stravaSegmentId);
+        const link = row.getByRole("link", { name: new RegExp(different ? "mapped segment on Strava" : "on Strava") });
+        await expect(link).toHaveAttribute("href", segment.stravaUrl);
+        await expect(link).toHaveAttribute("target", "_blank");
+        await expect(row.locator("button a, a button")).toHaveCount(0);
+        if (rank) {
+          const rankLabel = rank.source === "camp-report" ? "Reported Strava rank" : "Recorded Strava rank";
+          await expect(row.locator(".camp-rank")).toHaveText(`${rankLabel} ${rank.position.toLocaleString("en")} of ${rank.fieldSize.toLocaleString("en")}${rank.scope ? " · " + rank.scope : ""}`);
+        } else {
+          await expect(row.locator(".camp-rank")).toHaveCount(0);
+        }
+        if (different) {
+          const original = row.locator(".original-camp-result");
+          await expect(original).toContainText("Original camp segment (retired)");
+          await expect(original.locator(".camp-rank")).toBeVisible();
+          await expect(original.getByRole("link")).toHaveAttribute("href", `https://www.strava.com/segments/${rank.stravaSegmentId}`);
+        }
         if (!segment.matched) {
-          await expect(group.locator(".is-unmatched").filter({ hasText: segment.campLabel })).toContainText("Posted · not ridden");
+          await expect(row).toContainText("Posted · not ridden");
           continue;
         }
+        const time = segment.stats.elapsedSeconds;
+        const displayedTime = Math.floor(time / 60) + ":" + String(time % 60).padStart(2, "0");
+        await expect(row.locator(".segment-stat")).toContainText(`${different ? "Mapped segment time" : "Strava time"} ${displayedTime}`);
         const control = group.getByRole("button", { name: new RegExp(segment.campLabel) });
         await control.focus();
         await control.press("Enter");

@@ -406,8 +406,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       );
       selected.append(metrics);
       if (selectedRide.note) selected.append(element("p", "data-caveat", selectedRide.note));
-      const group = segmentGroup(selectedRide, "Climbs on this ride");
-      group.classList.add("ride-climbs");
+      const group = segmentGroup(selectedRide, true);
       guideContent.append(selected, group);
       const segment = segmentById(state.selectedSegmentId);
       if (segment) guideContent.append(segmentCard(segment));
@@ -459,18 +458,25 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       : "Boundary: rider FIT window reconciled to the segment’s distance, gain, power and heart rate.");
     card.append(basis);
     if (selectedSegment.stravaUrl) {
-      const link = element("a", "strava-link", "Open this segment on Strava ↗");
-      link.href = selectedSegment.stravaUrl;
-      link.target = "_blank";
-      link.rel = "noreferrer";
-      card.append(link);
+      card.append(stravaLink(selectedSegment.stravaUrl, selectedSegment.campLabel));
     }
     return card;
   };
 
-  const segmentGroup = (ride: Ride, label = ride.label): HTMLElement => {
+  const stravaLink = (url: string, label: string, rowText?: string): HTMLAnchorElement => {
+    const link = element("a", rowText ? "strava-link strava-link--row" : "strava-link",
+      rowText ? `${rowText} ↗` : "Open this segment on Strava ↗");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.setAttribute("aria-label", `Open ${label} on Strava (opens in a new tab)`);
+    return link;
+  };
+
+  const segmentGroup = (ride: Ride, showResults = false): HTMLElement => {
     const rideSegments = data.segments.filter((segment) => segment.rideId === ride.rideId);
-    const group = element("section", "segment-group");
+    const group = element("section", showResults ? "segment-group ride-climbs" : "segment-group");
+    const label = showResults ? "Climbs on this ride" : ride.label;
     const heading = element("div", "segment-group-heading");
     const swatch = element("span", "mini-swatch");
     swatch.style.background = ride.color;
@@ -482,18 +488,43 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       const list = element("ul", "segment-list");
       for (const segment of rideSegments) {
         const item = element("li", segment.matched ? "" : "is-unmatched");
+        const control = segment.matched ? button("segment-row", "") : element("span", "segment-row segment-row--unridden");
         if (segment.matched) {
-          const control = button("segment-row", "");
           control.dataset.segmentId = segment.segmentId;
           control.setAttribute("aria-pressed", String(segment.segmentId === state.selectedSegmentId));
-          control.append(
-            element("span", "segment-marker", "↗"),
-            element("strong", "", segment.campLabel),
-            element("span", "segment-stat", `${numberValue(segment.stats.distanceKm, 2)} km · ${duration(segment.stats.elapsedSeconds)}`),
-          );
-          item.append(control);
-        } else {
-          item.append(element("span", "segment-marker segment-marker--empty", "×"), element("strong", "", segment.campLabel), element("span", "segment-stat", "Posted · not ridden"));
+        }
+        const result = showResults ? segment.reportedResult : null;
+        const originalDiffers = result !== null && result.stravaSegmentId !== String(segment.stravaSegmentId);
+        let stat = "Posted · not ridden";
+        if (segment.matched) {
+          const time = duration(segment.stats.elapsedSeconds);
+          const distance = `${numberValue(segment.stats.distanceKm, 2)} km`;
+          const timeLabel = originalDiffers ? "Mapped segment time" : "Strava time";
+          stat = showResults ? `${timeLabel} ${time} · ${distance}` : `${distance} · ${time}`;
+        }
+        const marker = element("span", segment.matched ? "segment-marker" : "segment-marker segment-marker--empty", segment.matched ? "↗" : "×");
+        marker.setAttribute("aria-hidden", "true");
+        control.append(marker, element("strong", "", segment.campLabel), element("span", "segment-stat", stat));
+        item.append(control);
+        if (showResults && segment.stravaUrl) {
+          const name = originalDiffers ? `${segment.campLabel} mapped segment` : segment.campLabel;
+          item.append(stravaLink(segment.stravaUrl, name, originalDiffers ? "Mapped segment" : "Strava"));
+        }
+        if (result) {
+          const scope = result.scope ? ` · ${result.scope}` : "";
+          const rankLabel = result.source === "camp-report" ? "Reported Strava rank" : "Recorded Strava rank";
+          const rank = element("span", "camp-rank",
+            `${rankLabel} ${numberValue(result.position)} of ${numberValue(result.fieldSize)}${scope}`);
+          if (originalDiffers) {
+            const original = element("div", "original-camp-result");
+            const description = element("div", "original-camp-copy");
+            description.append(element("span", "original-camp-label", "Original camp segment (retired)"), rank);
+            original.append(description, stravaLink(`https://www.strava.com/segments/${result.stravaSegmentId}`,
+              `${segment.campLabel} original camp segment`, "Original segment"));
+            item.append(original);
+          } else {
+            control.append(rank);
+          }
         }
         list.append(item);
       }

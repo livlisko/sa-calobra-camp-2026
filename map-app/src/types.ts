@@ -68,6 +68,14 @@ export interface SegmentStats {
   averageHeartRateBpm: number | null;
 }
 
+export interface ReportedSegmentResult {
+  stravaSegmentId: string;
+  source: "camp-report" | "rider-log";
+  position: number;
+  fieldSize: number;
+  scope: string | null;
+}
+
 export interface Segment {
   segmentId: string;
   rideId: string;
@@ -80,6 +88,7 @@ export interface Segment {
   startPoint: Position | null;
   endPoint: Position | null;
   stats: SegmentStats;
+  reportedResult: ReportedSegmentResult | null;
   confidence: string | null;
   boundaryBasis: string | null;
   note: string | null;

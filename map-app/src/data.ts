@@ -6,6 +6,7 @@ import type {
   Place,
   Polygon,
   Position,
+  ReportedSegmentResult,
   Ride,
   RouteGeometry,
   Segment,
@@ -222,6 +223,17 @@ function normalizeRide(rawValue: unknown, index: number): Ride {
   };
 }
 
+function reportedSegmentResult(value: unknown): ReportedSegmentResult | null {
+  const result = object(value);
+  const position = number(result.position);
+  const fieldSize = number(result.fieldSize);
+  const stravaSegmentId = String(result.stravaSegmentId ?? "");
+  const source = result.source;
+  if ((source !== "camp-report" && source !== "rider-log") || !/^[1-9]\d*$/.test(stravaSegmentId) || position === null || fieldSize === null ||
+      !Number.isSafeInteger(position) || !Number.isSafeInteger(fieldSize) || position < 1 || position > fieldSize) return null;
+  return { position, fieldSize, stravaSegmentId, source, scope: nullableText(result.scope) };
+}
+
 function normalizeSegment(rawValue: unknown, index: number): Segment {
   const raw = object(rawValue);
   const stats = object(raw.stats ?? raw.metrics);
@@ -237,6 +249,7 @@ function normalizeSegment(rawValue: unknown, index: number): Segment {
     stravaSegmentId:
       typeof stravaSegmentId === "string" || typeof stravaSegmentId === "number" ? stravaSegmentId : null,
     stravaUrl: firstText(raw, ["stravaUrl", "url"]),
+    reportedResult: reportedSegmentResult(raw.reportedResult),
     matched,
     geometry: matched ? geometry : null,
     startPoint: position(raw.startPoint) ?? (geometry ? (geometry.type === "LineString" ? geometry.coordinates[0] : geometry.coordinates[0]?.[0]) : null) ?? null,

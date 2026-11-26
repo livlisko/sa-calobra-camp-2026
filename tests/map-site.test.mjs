@@ -164,6 +164,26 @@ test("map snapshot respects the public privacy boundary", () => {
   assert.ok(Math.max(...endpointCounts.values()) < 3, "three or more route endpoints expose one repeated location");
 });
 
+test("camp rankings retain the leaderboard and submission history they came from", () => {
+  const ranked = snapshot.segments.filter(segment => segment.reportedResult);
+  assert.equal(ranked.length, 14);
+  assert.equal(ranked.filter(segment => segment.reportedResult.source === "camp-report").length, 11);
+  assert.deepEqual(ranked.filter(segment => segment.reportedResult.source === "rider-log")
+    .map(segment => segment.campLabel), ["Femenia", "Lluc", "Coll dels Reis"]);
+  for (const segment of ranked) {
+    const result = segment.reportedResult;
+    assert.ok(segment.matched);
+    assert.ok(Number.isInteger(result.position) && result.position > 0);
+    assert.ok(Number.isInteger(result.fieldSize) && result.position <= result.fieldSize);
+    assert.equal(result.scope, "Women 25–34");
+  }
+  const substitutions = ranked.filter(segment => String(segment.stravaSegmentId) !== segment.reportedResult.stravaSegmentId);
+  assert.deepEqual(substitutions.map(({campLabel, reportedResult: r}) => [campLabel, r.stravaSegmentId, r.position, r.fieldSize]), [
+    ["Sant Salvador", "21004670", 462, 3219],
+    ["Honor", "684282", 723, 3476],
+  ]);
+});
+
 test("optional contentHash binds the canonical public snapshot", () => {
   if (snapshot.contentHash == null) return;
   assert.match(snapshot.contentHash, /^sha256:[a-f0-9]{64}$/);
