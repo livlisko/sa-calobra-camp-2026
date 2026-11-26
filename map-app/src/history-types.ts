@@ -130,6 +130,8 @@ export interface ImportedHistoryEffort {
   campLabel: string;
   templateHash: string;
   startedAtIso: string;
+  startTimestampMs: number;
+  endTimestampMs: number;
   elapsedSeconds: number;
   movingSeconds: number;
   distanceM: number | null;

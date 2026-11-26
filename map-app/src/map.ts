@@ -14,6 +14,7 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const MAPTERHORN_TILEJSON = "https://tiles.mapterhorn.com/tilejson.json";
+const INITIAL_TILE_RETRY_MS = 2500;
 const MAX_BOUNDS: [[number, number], [number, number]] = [[2.14, 39.10], [3.70, 40.10]];
 
 type JsonProperties = Record<string, string | number | boolean | null>;
@@ -26,7 +27,8 @@ type GeoFeature = {
 type FeatureCollection = { type: "FeatureCollection"; features: GeoFeature[] };
 
 export interface ReliefMapEvents {
-  onReady: () => void;
+  onViewInit: () => void;
+  onAvailabilityChange: (available: boolean) => void;
   onStatus: (message: string, kind?: "quiet" | "warning" | "error") => void;
   onRideClick: (rideId: string, position: Position) => void;
   onSegmentClick: (segmentId: string) => void;
@@ -160,7 +162,12 @@ export class ReliefMap {
   private selectedPointId: string | null = null;
   private selectedSummitId: string | null = null;
   private summitMarkers = new Map<string, { marker: maplibregl.Marker; button: HTMLButtonElement }>();
-  private liveCheckAttempts = 0;
+  private viewInitialized = false;
+  private contextLost = false;
+  private baseSourceIds: string[] = [];
+  private baseRetryTimer?: number;
+  private baseRetryDelay = INITIAL_TILE_RETRY_MS;
+  private unavailableTerrainSources = new Set<string>();
   private loadTimeout: number;
 
   constructor(
@@ -203,16 +210,75 @@ export class ReliefMap {
     this.loadTimeout = window.setTimeout(() => {
       if (!this.ready) this.events.onStatus("Live tiles are taking too long. The static route map remains available.", "warning");
     }, 12_000);
-    this.map.once("load", () => this.onStyleLoad(initialState));
-    this.map.on("error", (event) => this.onMapError(event.error));
+    this.map.on("style.load", () => this.onStyleLoad());
+    this.map.on("sourcedata", (event) => {
+      if (event.sourceDataType === "metadata" && this.unavailableTerrainSources.delete(event.sourceId) && this.ready) {
+        this.reportLiveStatus();
+      }
+    });
+    this.map.on("render", () => this.verifyLiveFrame());
+    this.map.on("webglcontextlost", () => {
+      this.contextLost = true;
+      this.ready = false;
+      this.viewInitialized = false;
+      this.clearBaseRetry();
+      window.clearTimeout(this.loadTimeout);
+      this.events.onAvailabilityChange(false);
+      this.events.onStatus("Live rendering paused. Select a route on the static map.", "warning");
+    });
+    this.map.on("webglcontextrestored", () => {
+      this.contextLost = false;
+      this.events.onStatus("Restoring the live map…", "quiet");
+      // A loss during the first style request may leave no style to restore.
+      if (!this.map.style) this.map.setStyle(OPENFREEMAP_STYLE);
+    });
+    window.addEventListener("offline", this.onOffline);
+    window.addEventListener("online", this.onOnline);
+    this.map.on("error", (event) => this.onMapError(event));
     this.map.on("moveend", () => {
       this.updateSummitDensity();
       if (this.ready) this.events.onCameraChange();
     });
   }
 
-  private onStyleLoad(initialState: AtlasState): void {
-    if (this.destroyed) return;
+  private onOffline = (): void => {
+    this.events.onStatus("Offline. The ride guide and loaded routes remain available.", "warning");
+  };
+
+  private onOnline = (): void => {
+    if (this.contextLost) return;
+    if (this.ready) {
+      for (const id of this.unavailableTerrainSources) {
+        this.map.getSource<maplibregl.RasterDEMTileSource>(id)?.setUrl(MAPTERHORN_TILEJSON);
+      }
+      this.reportLiveStatus();
+      return;
+    }
+    this.clearBaseRetry();
+    this.viewInitialized = false;
+    this.map.setStyle(OPENFREEMAP_STYLE, { diff: false });
+  };
+
+  private onStyleLoad(): void {
+    if (this.destroyed || this.contextLost) return;
+    const style = this.map.getStyle();
+    this.unavailableTerrainSources.clear();
+    this.baseSourceIds = Object.keys(style.sources).filter((id) => {
+      const type = style.sources[id].type;
+      return type === "vector" || type === "raster";
+    });
+    // MapLibre recreates the previously serialized style after context loss,
+    // including our sources/layers but without their feature selection state.
+    if (!this.map.getLayer("camp-routes-line")) this.installAtlasLayers();
+    if (!this.summitMarkers.size) {
+      this.addSummitMarkers();
+      this.bindInteractions();
+    }
+    this.viewInitialized = true;
+    this.events.onViewInit();
+  }
+
+  private installAtlasLayers(): void {
     this.restyleBase();
     const styleLayers = this.map.getStyle().layers ?? [];
     const firstLabel = styleLayers.find((layer) => layer.type === "symbol" && Boolean(layer.layout?.["text-field"]))?.id;
@@ -405,14 +471,6 @@ export class ReliefMap {
         "text-opacity": ["case", ["boolean", ["feature-state", "dimmed"], false], 0.18, 1],
       },
     });
-
-    this.addSummitMarkers();
-
-    this.bindInteractions();
-    this.setTerrain(initialState.terrain, false);
-    this.updateSelection(initialState);
-    if (!initialState.camera) this.showIsland(false);
-    this.map.once("idle", () => this.verifyLiveFrame());
   }
 
   private restyleBase(): void {
@@ -546,69 +604,94 @@ export class ReliefMap {
     });
   }
 
-  private verifyLiveFrame(): void {
-    if (this.destroyed || this.ready) return;
-    this.map.triggerRepaint();
-    window.requestAnimationFrame(() => {
-      const canvas = this.map.getCanvas();
-      const painter = (this.map as unknown as { painter?: { context?: { gl?: WebGLRenderingContext | WebGL2RenderingContext } } }).painter;
-      const gl = painter?.context?.gl;
-      let nonblank = false;
-      if (gl && canvas.width > 0 && canvas.height > 0) {
-        try {
-          const width = Math.min(24, canvas.width);
-          const height = Math.min(24, canvas.height);
-          const x = Math.max(0, Math.floor(canvas.width / 2 - width / 2));
-          const y = Math.max(0, Math.floor(canvas.height / 2 - height / 2));
-          const pixels = new Uint8Array(width * height * 4);
-          gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-          nonblank = pixels.some((value, index) => index % 4 !== 3 && value > 2);
-        } catch {
-          nonblank = false;
-        }
-      }
-      const sourceRideIds = new Set(
-        this.map
-          .querySourceFeatures("camp-routes")
-          .map((feature) => feature.properties?.rideId)
-          .filter((rideId): rideId is string => typeof rideId === "string"),
-      );
-      const renderedRoutes = this.map.queryRenderedFeatures({ layers: ["camp-routes-line"] });
-      // `queryRenderedFeatures()` can report zero for terrain-draped GeoJSON
-      // lines in some WebGL implementations even when the layer is visibly
-      // drawn. Verify the complete source and its active style layer instead;
-      // the canvas readback above still guards against a blank renderer.
-      const sourceLoaded = this.map.isSourceLoaded("camp-routes");
-      const routeLayerReady = Boolean(this.map.getLayer("camp-routes-line"));
-      const routesReady = sourceRideIds.size === this.data.rides.length && sourceLoaded && routeLayerReady;
-      if (nonblank && routesReady) {
-        this.ready = true;
-        window.clearTimeout(this.loadTimeout);
-        this.events.onStatus("Live terrain ready", "quiet");
-        this.events.onReady();
-        return;
-      }
-      this.liveCheckAttempts += 1;
-      if (this.liveCheckAttempts < 5) {
-        window.setTimeout(() => this.verifyLiveFrame(), 500);
-      } else {
-        const campLayerIds = (this.map.getStyle().layers ?? []).map((layer) => layer.id).filter((id) => id.startsWith("camp-"));
-        console.warn(
-          `Mallorca live map verification did not pass: nonblank=${nonblank}, sourceRideCount=${sourceRideIds.size}, sourceLoaded=${sourceLoaded}, routeLayerReady=${routeLayerReady}, renderedRouteCount=${renderedRoutes.length}, campLayers=${campLayerIds.join(",")}.`,
-        );
-        this.events.onStatus("Live map could not be verified. The static route map remains available.", "warning");
-      }
-    });
+  // MapLibre 6.15's painter uses these in-view tile IDs when drawing a source.
+  // They include usable parent/child tiles retained at a different zoom. A
+  // loaded source alone can mean every tile failed. If the renderer API
+  // changes, keep the verified static map available until coverage is known.
+  private hasRenderableTiles(id: string): boolean {
+    const tiles = this.map.style?.tileManagers?.[id];
+    const visible = tiles?.getRenderableIds?.();
+    if (!visible?.length) return false;
+    if (this.map.getSource(id)?.type !== "vector") return true;
+    // A vector HTTP 404 installs a loaded placeholder with no feature index.
+    // Successfully parsed tiles have an index even when they contain no roads.
+    return visible.some((key) => Boolean(tiles.getTileByID?.(key)?.latestFeatureIndex));
   }
 
-  private onMapError(error: { message?: string } | undefined): void {
-    const message = error?.message ?? "Unknown map error";
-    if (/camp-(?:routes|segments)-line/i.test(message)) console.warn(`Mallorca route layer error: ${message}`);
-    if (/terrain|dem|mapterhorn/i.test(message)) console.warn(`Mallorca terrain error: ${message}`);
-    if (/terrain|dem|mapterhorn/i.test(message) && this.map.isStyleLoaded()) {
-      this.events.onStatus("Terrain tiles are unavailable; routes remain on the 2D map.", "warning");
+  private hasBaseCoverage(): boolean {
+    return !this.baseSourceIds.length || this.baseSourceIds.some((id) => this.hasRenderableTiles(id));
+  }
+
+  private clearBaseRetry(): void {
+    window.clearTimeout(this.baseRetryTimer);
+    this.baseRetryTimer = undefined;
+    this.baseRetryDelay = INITIAL_TILE_RETRY_MS;
+  }
+
+  private retryFailedBaseTiles(): void {
+    if (this.baseRetryTimer !== undefined || !navigator.onLine) return;
+    // A remote provider may recover while the browser stays online. Retry
+    // only after this view has exhausted its requests. Rendering and tile
+    // events still control the switch back as soon as any coverage returns.
+    this.baseRetryTimer = window.setTimeout(() => {
+      this.baseRetryTimer = undefined;
+      if (!this.viewInitialized || this.hasBaseCoverage() || !navigator.onLine) return;
+      this.baseRetryDelay = Math.min(60_000, this.baseRetryDelay * 2);
+      if (this.baseSourceIds.every((id) => this.map.isSourceLoaded(id))) {
+        for (const id of this.baseSourceIds) this.map.refreshTiles(id);
+      }
+      // HTTP 404s can settle without another map event. Keep the request
+      // retry scheduled while uncovered, including when a prior load is slow.
+      this.retryFailedBaseTiles();
+    }, this.baseRetryDelay);
+  }
+
+  private verifyLiveFrame(): void {
+    if (this.destroyed || this.contextLost || !this.viewInitialized || this.map.isMoving()) return;
+    if (!this.hasBaseCoverage()) {
+      if (this.ready) {
+        this.ready = false;
+        this.events.onAvailabilityChange(false);
+        this.events.onStatus("Live tiles are unavailable for this view. The static route map is ready.", "warning");
+      }
+      this.retryFailedBaseTiles();
       return;
     }
+    if (this.ready) return;
+    this.clearBaseRetry();
+    if (!this.hasRenderableTiles("camp-routes") || !this.map.getLayer("camp-routes-line") || !this.map.isSourceLoaded("camp-routes")) return;
+    // A close-up may have only one route, or no route in the visible tiles.
+    // Read the just-drawn frame while its WebGL drawing buffer is still valid.
+    const gl = this.map.getCanvas().getContext("webgl2");
+    if (!gl || gl.isContextLost() || !gl.drawingBufferWidth || !gl.drawingBufferHeight) return;
+    const pixel = new Uint8Array(4);
+    gl.readPixels(Math.floor(gl.drawingBufferWidth / 2), Math.floor(gl.drawingBufferHeight / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    if (!pixel[3]) return;
+    this.ready = true;
+    window.clearTimeout(this.loadTimeout);
+    this.reportLiveStatus();
+    this.events.onAvailabilityChange(true);
+  }
+
+  private reportLiveStatus(): void {
+    if (this.unavailableTerrainSources.size) this.events.onStatus("Live routes available. Terrain data could not load.", "warning");
+    else this.events.onStatus("Live route map ready", "quiet");
+  }
+
+  private onMapError(event: maplibregl.ErrorEvent & { sourceId?: string; tile?: unknown }): void {
+    if (this.contextLost || this.destroyed) return;
+    const { sourceId, tile, error } = event;
+    // The last failed tile may not schedule another frame on its own.
+    if (sourceId && this.baseSourceIds.includes(sourceId)) this.map.triggerRepaint();
+    // A failed descriptor affects the whole relief layer. An individual tile
+    // error can coexist with a useful terrain mesh and active route controls.
+    if (!tile && (sourceId === "mallorca-terrain" || sourceId === "mallorca-hillshade-dem")) {
+      this.unavailableTerrainSources.add(sourceId);
+      if (this.ready) this.reportLiveStatus();
+      return;
+    }
+    const message = error.message;
+    if (/camp-(?:routes|segments)-line/i.test(message)) console.warn(`Mallorca route layer error: ${message}`);
     if (!this.ready) this.events.onStatus("Live tiles are unavailable. The static route map remains available.", "warning");
   }
 
@@ -622,7 +705,7 @@ export class ReliefMap {
   }
 
   updateSelection(state: AtlasState): void {
-    if (!this.map.getSource("camp-routes")) return;
+    if (!this.viewInitialized) return;
     for (const ride of this.data.rides) {
       this.setFeatureState("camp-routes", ride.rideId, {
         selected: ride.rideId === state.selectedRideId,
@@ -656,12 +739,12 @@ export class ReliefMap {
   }
 
   setTerrain(mode: TerrainMode, animate = true): void {
-    if (!this.map.getSource("mallorca-terrain")) return;
+    if (!this.viewInitialized) return;
     if (mode === "3d") {
-      this.map.setTerrain({ source: "mallorca-terrain", exaggeration: 1.2 });
+      if (!this.map.getTerrain()) this.map.setTerrain({ source: "mallorca-terrain", exaggeration: 1.2 });
       this.moveCamera({ pitch: Math.max(48, this.map.getPitch()), bearing: this.map.getBearing() || -8 }, animate);
     } else {
-      this.map.setTerrain(null);
+      if (this.map.getTerrain()) this.map.setTerrain(null);
       this.moveCamera({ pitch: 0, bearing: 0 }, animate);
     }
   }
@@ -711,6 +794,7 @@ export class ReliefMap {
   }
 
   restoreCamera(camera: CameraState): void {
+    if (!this.viewInitialized) return;
     this.map.jumpTo({
       center: [camera.longitude, camera.latitude],
       zoom: camera.zoom,
@@ -720,6 +804,7 @@ export class ReliefMap {
   }
 
   private fitBounds(bounds: Bounds, animate: boolean, island: boolean, maxZoom = 11.8): void {
+    if (!this.viewInitialized) return;
     const [west, south, east, north] = bounds;
     const options: maplibregl.FitBoundsOptions = {
       padding: mapPadding(),
@@ -732,6 +817,7 @@ export class ReliefMap {
   }
 
   private moveCamera(options: maplibregl.EaseToOptions, animate: boolean): void {
+    if (!this.viewInitialized) return;
     const duration = this.motionDuration(animate);
     this.map.easeTo({ ...options, duration, easing: (value) => 1 - Math.pow(1 - value, 3) });
   }
@@ -745,11 +831,14 @@ export class ReliefMap {
   }
 
   resize(): void {
-    if (!this.destroyed) this.map.resize();
+    if (!this.destroyed && !this.contextLost) this.map.resize();
   }
 
   destroy(): void {
     this.destroyed = true;
+    this.clearBaseRetry();
+    window.removeEventListener("offline", this.onOffline);
+    window.removeEventListener("online", this.onOnline);
     window.clearTimeout(this.loadTimeout);
     this.map.remove();
   }

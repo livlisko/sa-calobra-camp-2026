@@ -6,7 +6,7 @@ This is an isolated Vite/TypeScript application built to `site/map/`. It deliber
 ./data/mallorca-map.snapshot.json
 ```
 
-The source file should therefore be placed at `map-app/public/data/mallorca-map.snapshot.json`. The browser never reads raw FIT files, local analysis paths, activity/effort identifiers, device metadata, exact timestamps, or the private endpoint-redaction centre.
+The published source is `map-app/public/data/mallorca-map.snapshot.json`. In Compare, riders can select their own FIT files. A browser worker decodes them locally. Remembering derived effort summaries across visits requires opting in on that device.
 
 ## Preferred snapshot shape
 
@@ -97,6 +97,6 @@ The runtime normalizer accepts a few explicit aliases documented in `src/data.ts
 
 - One locally bundled MapLibre instance uses OpenFreeMap Liberty and Mapterhorn DEM tiles.
 - An inline same-origin SVG map is the opening and failure renderer. It retains island context, ride and segment geometry, direct labels, selection state, the guide, and the elevation profile.
-- The SVG is hidden only after an idle MapLibre frame passes a nonblank WebGL pixel check.
+- The SVG stays interactive until MapLibre draws an opaque frame with the loaded camp route source, its line layer and a loaded basemap tile. MapLibre must have drawable base tiles in the current view, including usable parent or child tiles. Vector coverage requires a decoded tile, which may contain zero features. A missing tile can leave a placeholder that MapLibre marks as loaded. A close-up can show any number of routes. When panning leaves all available coverage, the SVG takes over and the atlas retries failed tiles with increasing delays. After WebGL context loss, the SVG takes over until the live renderer can draw the current selection again. If the elevation provider fails to load, the live routes stay interactive and the missing terrain source retries on reconnection.
 - All map-only actions have a keyboard-accessible guide/list equivalent.
 - URL hash state carries ride, segment, point, terrain, guide tab, and camera.

@@ -730,6 +730,7 @@ a { color: inherit; }
 .ride-card-copy small { color: #7b8079; font-size: 0.63rem; }
 .ride-arrow { color: #81877e; font-size: 0.88rem; }
 
+.ride-climbs { margin-bottom: 24px; }
 .segment-groups { display: flex; flex-direction: column; gap: 20px; }
 .segment-group { border-top: 1px solid var(--hairline); }
 .segment-group-heading { min-height: 42px; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
@@ -788,6 +789,8 @@ a { color: inherit; }
 .profile-kicker { color: #6f766e; }
 .profile-unit { color: #979a91; font: italic 0.66rem var(--serif); }
 .profile-empty { margin: 12px 0 0; color: #858a82; font: italic 0.75rem/1.4 var(--serif); }
+.guide-content > .profile-panel { margin: 20px 0 25px; padding: 15px 0; }
+.profile-segment-caption { margin: 8px 0 0; color: #655735; font: 0.74rem/1.4 var(--serif); }
 .profile-chart { display: block; width: 100%; height: auto; min-height: 110px; margin-top: 8px; overflow: visible; cursor: crosshair; }
 .profile-chart:focus-visible { outline: 2px solid #896f2f; outline-offset: 4px; }
 .profile-segment-band { fill: rgba(220, 185, 94, 0.22); stroke: rgba(151, 116, 34, 0.38); stroke-width: 1; }

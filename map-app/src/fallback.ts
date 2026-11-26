@@ -78,7 +78,7 @@ export class StaticMapFallback {
     this.svg = svgElement("svg", {
       class: "fallback-map",
       viewBox: `0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`,
-      role: "img",
+      role: "group",
       "aria-labelledby": "fallback-title fallback-description",
       preserveAspectRatio: "xMidYMid meet",
     });
@@ -207,7 +207,7 @@ export class StaticMapFallback {
     }
     this.svg.append(segmentGroup);
 
-    const labels = svgElement("g", { class: "fallback-labels", "aria-hidden": "true" });
+    const labels = svgElement("g", { class: "fallback-labels", "aria-hidden": "true", "pointer-events": "none" });
     for (const ride of this.data.rides) {
       const coordinate = ride.labelCoordinate ?? routeLabelCoordinate(ride.route);
       if (!coordinate) continue;
@@ -259,19 +259,21 @@ export class StaticMapFallback {
       summitGroup.append(group);
     }
     this.svg.append(summitGroup);
-    this.svg.append(svgElement("g", { class: "fallback-point-layer" }));
+    this.svg.append(svgElement("g", { class: "fallback-point-layer", "pointer-events": "none", "aria-hidden": "true" }));
   }
 
   update(state: AtlasState, selectedSummitId: string | null = null): void {
     this.svg.querySelectorAll<SVGElement>("[data-ride-id]").forEach((element) => {
       const rideId = element.dataset.rideId;
-      element.classList.toggle("is-selected", Boolean(state.selectedRideId && rideId === state.selectedRideId));
+      element.classList.toggle("is-selected", rideId === state.selectedRideId);
+      if (element.hasAttribute("role")) element.setAttribute("aria-pressed", String(rideId === state.selectedRideId));
       element.classList.toggle("is-dimmed", Boolean(state.selectedRideId && rideId !== state.selectedRideId));
     });
     this.svg.querySelectorAll<SVGElement>("[data-segment-id]").forEach((element) => {
       const segmentId = element.dataset.segmentId;
       const segment = this.data.segments.find((entry) => entry.segmentId === segmentId);
-      element.classList.toggle("is-selected", Boolean(state.selectedSegmentId && segmentId === state.selectedSegmentId));
+      element.classList.toggle("is-selected", segmentId === state.selectedSegmentId);
+      element.setAttribute("aria-pressed", String(segmentId === state.selectedSegmentId));
       element.classList.toggle("is-dimmed", Boolean(state.selectedRideId && segment?.rideId !== state.selectedRideId));
     });
     this.svg.querySelectorAll<SVGElement>("[data-ride-label]").forEach((element) => {

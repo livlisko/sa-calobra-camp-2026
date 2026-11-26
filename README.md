@@ -20,7 +20,8 @@ Road and summit positions are attributed in the app to OpenStreetMap contributor
 
 ```sh
 npm ci
+npx playwright install chromium
 npm run verify
 ```
 
-The verification command type-checks and builds the relief atlas, then checks the public shell, map data, privacy boundary, and local FIT-import behavior. The GitHub Pages workflow repeats the same sequence before every deployment.
+Verification type-checks and builds the atlas, runs the data and privacy tests, and exercises the built site in Chromium. The browser tests use Python 3 to serve the local build. GitHub Pages deploys the artifact that passed verification.

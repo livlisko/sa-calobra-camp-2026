@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { FitBaseType, FitEncoder } from "fit-file-parser/encoder";
+import { encodeSegmentFit } from "./fixtures/segment-fit.mjs";
 import { createServer, transformWithOxc } from "vite";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -119,6 +119,31 @@ test("time weighting includes recorded zero power and respects irregular interva
   assert.equal(effort.coverage.power, 1);
 });
 
+test("gain uses the fraction of each valid altitude interval inside the segment", () => {
+  const points = track().filter((_, i) => i <= 30 && i % 10 === 0)
+    .map((point, i) => ({ ...point, altitudeM: i * 10 }));
+  const match = history.matchHistoryTrack(track(), catalog())[0];
+  match.window = { startTimestampMs: baseTimestamp + 5000, endTimestampMs: baseTimestamp + 25000, startIndex: 0, endIndex: 3 };
+  const gain = (samples, maxGap = 30) => history.deriveHistoryEffort("source", "effort", "v1", samples, match, maxGap).elevationGainM;
+  assert.equal(gain(points), 20);
+  assert.equal(gain(points, 5), null);
+  assert.equal(gain(points.map((p, i) => ({ ...p, timerRunning: i > 0 }))), 15);
+  assert.equal(gain(points.map((p) => ({ ...p, altitudeM: -p.altitudeM }))), 0);
+});
+
+test("equal-sized increases and decreases round symmetrically in a comparison", async () => {
+  const vite = await createServer({ root: repoRoot, appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
+  try {
+    const { formatComparisonDelta } = await vite.ssrLoadModule("/map-app/src/comparison.ts");
+    const compare = (w) => formatComparisonDelta({ averagePowerW: w }, { averagePowerW: 200 }, "power", "last time");
+    assert.equal(compare(199.5), "1 W lower than last time");
+    assert.equal(compare(200.5), "1 W higher than last time");
+    assert.equal(compare(199.6), "Matched last time");
+  } finally {
+    await vite.close();
+  }
+});
+
 test("low-coverage sensor values never enter personal metric trends", () => {
   const points = track().map((point, index) => ({ ...point, powerW: index === 0 ? 400 : null }));
   const match = history.matchHistoryTrack(points, catalog())[0];
@@ -133,38 +158,7 @@ test("explicitly non-cycling FIT sessions are excluded before segment matching",
   const snapshot = JSON.parse(await readFile(path.join(repoRoot, "map-app", "public", "data", "mallorca-map.snapshot.json"), "utf8"));
   const segment = snapshot.segments.find((entry) => entry.segmentId === "segment-14");
   assert.ok(segment?.geometry);
-  const coordinates = segment.geometry.type === "LineString" ? segment.geometry.coordinates : segment.geometry.coordinates.flat();
-  const encoder = new FitEncoder();
-  const startedAt = new Date("2025-10-22T08:00:00.000Z");
-  const semicircles = (degrees) => Math.round(degrees * 2 ** 31 / 180);
-  encoder.writeMessage(0, [
-    { number: 0, size: 1, baseType: FitBaseType.Enum, value: 4 },
-    { number: 1, size: 2, baseType: FitBaseType.Uint16, value: 1 },
-    { number: 4, size: 4, baseType: FitBaseType.Uint32, value: FitEncoder.toFitTimestamp(startedAt) },
-  ]);
-  coordinates.forEach(([longitude, latitude], index) => {
-    const fraction = index / (coordinates.length - 1);
-    const timestamp = new Date(startedAt.valueOf() + index * 5000);
-    encoder.writeMessage(20, [
-      { number: 0, size: 4, baseType: FitBaseType.Sint32, value: semicircles(latitude) },
-      { number: 1, size: 4, baseType: FitBaseType.Sint32, value: semicircles(longitude) },
-      { number: 2, size: 2, baseType: FitBaseType.Uint16, value: Math.round((100 + fraction * 660 + 500) * 5) },
-      { number: 3, size: 1, baseType: FitBaseType.Uint8, value: 155 },
-      { number: 4, size: 1, baseType: FitBaseType.Uint8, value: 80 },
-      { number: 5, size: 4, baseType: FitBaseType.Uint32, value: Math.round(fraction * 9410 * 100) },
-      { number: 7, size: 2, baseType: FitBaseType.Uint16, value: 220 },
-      { number: 253, size: 4, baseType: FitBaseType.Uint32, value: FitEncoder.toFitTimestamp(timestamp) },
-    ], 1);
-  });
-  const durationSeconds = (coordinates.length - 1) * 5;
-  encoder.writeMessage(18, [
-    { number: 2, size: 4, baseType: FitBaseType.Uint32, value: FitEncoder.toFitTimestamp(startedAt) },
-    { number: 5, size: 1, baseType: FitBaseType.Enum, value: 1 },
-    { number: 7, size: 4, baseType: FitBaseType.Uint32, value: durationSeconds * 1000 },
-    { number: 8, size: 4, baseType: FitBaseType.Uint32, value: durationSeconds * 1000 },
-    { number: 253, size: 4, baseType: FitBaseType.Uint32, value: FitEncoder.toFitTimestamp(new Date(startedAt.valueOf() + durationSeconds * 1000)) },
-  ], 2);
-  const encoded = encoder.close();
+  const encoded = encodeSegmentFit(segment, new Date("2025-10-22T08:00:00Z"), 1);
   const vite = await createServer({ root: repoRoot, appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
   try {
     const fitHistory = await vite.ssrLoadModule("/map-app/src/history-fit.ts");

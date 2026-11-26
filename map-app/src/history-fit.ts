@@ -1,4 +1,5 @@
 import FitParser from "fit-file-parser";
+import { fitIdentity } from "./history-identities";
 import { deriveHistoryEffort, matchHistoryTrack, validateHistoryCatalog } from "./history-match";
 import type {
   HistoryImportResult,
@@ -198,10 +199,11 @@ export async function parseFitHistory(
 
   onPhase?.("matching");
   const matches = matchHistoryTrack(normalized.points, catalog);
-  const efforts = matches.flatMap((match, index) => {
+  const efforts = matches.flatMap((match) => {
+    if (!match.window) return [];
     const effort = deriveHistoryEffort(
       sourceId,
-      `${sourceId}:${match.segmentKey}:${index + 1}`,
+      fitIdentity(match.segmentKey, match.window.startTimestampMs, match.window.endTimestampMs),
       catalog.catalogVersion,
       normalized.points,
       match,

@@ -1,4 +1,5 @@
 import "./comparison.css";
+import { fitIdentity } from "./history-identities";
 import type { HistoryEffortQuality, HistoryMetricCoverage, ImportedHistoryEffort } from "./history-types";
 
 export type ComparisonMetric = "time" | "power" | "heart-rate";
@@ -32,6 +33,8 @@ export interface ComparisonEffort {
   /** Must match the catalog segment version after geometry review. */
   segmentVersionKey?: string | null;
   activityDate: string;
+  endedAtIso?: string;
+  addedAt?: number;
   elapsedSeconds: number | null;
   averagePowerW: number | null;
   averageHeartRateBpm: number | null;
@@ -56,6 +59,9 @@ export interface ComparisonImportState {
   errorMessages?: string[];
   rememberedOnDevice?: boolean;
   lastImportedAt?: string | null;
+  storageMessage?: string;
+  storageBusy?: boolean;
+  sessionOnly?: boolean;
 }
 
 export interface ComparisonDataset {
@@ -114,7 +120,8 @@ export function comparisonEffortFromImportedHistory(
   atlasSegmentId: string,
 ): ComparisonEffort {
   return {
-    effortId: effort.effortId,
+    effortId: fitIdentity(effort.segmentKey, effort.startTimestampMs, effort.endTimestampMs),
+    endedAtIso: new Date(effort.endTimestampMs).toISOString(),
     segmentId: atlasSegmentId,
     segmentVersionKey: effort.segmentKey,
     activityDate: effort.startedAtIso,
@@ -157,8 +164,9 @@ function node<K extends keyof HTMLElementTagNameMap>(
   return result;
 }
 
-function control(className: string, text: string): HTMLButtonElement {
+function control(className: string, text: string, focusKey = className): HTMLButtonElement {
   const result = node("button", className, text);
+  result.dataset.comparisonFocus = focusKey;
   result.type = "button";
   return result;
 }
@@ -249,7 +257,7 @@ function formatMetric(value: number | null, metric: ComparisonMetric): string {
 
 function signedNumber(value: number): string {
   if (Math.abs(value) < 0.5) return "0";
-  return `${value > 0 ? "+" : "−"}${Math.abs(Math.round(value))}`;
+  return `${value > 0 ? "+" : "−"}${Math.round(Math.abs(value))}`;
 }
 
 export function formatComparisonDelta(
@@ -271,7 +279,7 @@ export function formatComparisonDelta(
   }
   if (Math.abs(difference) < 0.5) return `Matched ${baselineLabel}`;
   const unit = metric === "power" ? "W" : "bpm";
-  return `${Math.abs(Math.round(difference))} ${unit} ${difference > 0 ? "higher" : "lower"} than ${baselineLabel}`;
+  return `${Math.round(Math.abs(difference))} ${unit} ${difference > 0 ? "higher" : "lower"} than ${baselineLabel}`;
 }
 
 function sourceLabel(source: ComparisonEffortSource): string {
@@ -324,7 +332,7 @@ function createMetricToggle(
   group.setAttribute("role", "group");
   group.setAttribute("aria-label", "Comparison metric");
   (["time", "power", "heart-rate"] as ComparisonMetric[]).forEach((metric) => {
-    const item = control("comparison-chip", METRIC_LABELS[metric]);
+    const item = control("comparison-chip", METRIC_LABELS[metric], metric);
     item.dataset.metric = metric;
     item.setAttribute("aria-pressed", String(state.metric === metric));
     const available = metric === "time" || metricHasComparison(summary, metric);
@@ -513,7 +521,7 @@ function createReviewNotice(dataset: ComparisonDataset, onReview?: () => void): 
     const unresolvedCopy = reportedUnmatched ? ` · ${reportedUnmatched} ${reportedUnmatched === 1 ? "file added nothing" : "files added nothing"}` : "";
     notice.append(
       node("strong", "", "Some matches need review"),
-      node("p", "", `${reportedProvisional} likely ${reportedProvisional === 1 ? "match" : "matches"}${unresolvedCopy}. Likely matches are excluded from comparison headlines until confirmed.`),
+      node("p", "", `${reportedProvisional} pending ${reportedProvisional === 1 ? "decision" : "decisions"}${unresolvedCopy}. Review these efforts before counting another ascent.`),
     );
   } else {
     const unmatchedCopy = reportedUnmatched === 1
@@ -549,7 +557,7 @@ function createImportControls(
   fileInput.multiple = true;
   fileInput.accept = ".fit,application/vnd.ant.fit";
   const importButton = control("comparison-primary-button", dataset.efforts.some((effort) => effort.scope === "personal") ? "Import more" : "Add past rides");
-  importButton.disabled = !callbacks.onFilesSelected;
+  importButton.disabled = !callbacks.onFilesSelected || dataset.importState?.status === "parsing" || Boolean(dataset.importState?.storageBusy);
   if (!callbacks.onFilesSelected) importButton.title = "Connect a local import handler to enable file selection.";
   importButton.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => {
@@ -559,8 +567,8 @@ function createImportControls(
   });
   actions.append(fileInput, importButton);
 
-  const personalCount = dataset.efforts.filter((effort) => effort.scope === "personal").length;
-  if (personalCount && callbacks.onForgetHistory) {
+  const personalCount = dataset.efforts.filter((effort) => effort.scope === "personal" && VALID_MATCHES.has(effort.matchStatus)).length;
+  if ((personalCount || dataset.importState?.provisionalCount || dataset.importState?.status === "parsing" || dataset.importState?.rememberedOnDevice || dataset.importState?.storageMessage) && callbacks.onForgetHistory) {
     const forget = control("comparison-link-button comparison-forget-button", "Forget imported history…");
     forget.addEventListener("click", () => {
       const confirmed = window.confirm("Forget imported comparison history on this device? The public atlas will not be changed.");
@@ -574,6 +582,8 @@ function createImportControls(
     const persistence = node("label", "comparison-persistence");
     const checkbox = node("input");
     checkbox.type = "checkbox";
+    checkbox.dataset.comparisonFocus = "remember";
+    checkbox.disabled = Boolean(dataset.importState?.storageBusy);
     checkbox.checked = Boolean(dataset.importState?.rememberedOnDevice);
     checkbox.addEventListener("change", () => void callbacks.onPersistenceChange?.(checkbox.checked));
     persistence.append(checkbox, document.createTextNode(" Remember on this device"));
@@ -581,6 +591,14 @@ function createImportControls(
   }
 
   const status = dataset.importState;
+  if (status?.sessionOnly) {
+    wrapper.append(node("p", "comparison-import-status", "Some summaries or review decisions are available only in this tab."));
+  }
+  if (status?.storageMessage) {
+    const warning = node("p", "comparison-import-status is-error", status.storageMessage);
+    warning.setAttribute("role", "status");
+    wrapper.append(warning);
+  }
   if (status && status.status !== "idle") {
     const statusNode = node("div", `comparison-import-status is-${status.status}`);
     statusNode.setAttribute("role", "status");
@@ -589,7 +607,7 @@ function createImportControls(
     } else if (status.status === "review") {
       statusNode.textContent = `${status.exactCount ?? 0} exact · ${status.confirmedCount ?? 0} confirmed · ${status.provisionalCount ?? 0} need review`;
     } else if (status.status === "ready") {
-      statusNode.textContent = `${personalCount} personal ${personalCount === 1 ? "effort" : "efforts"} available${status.rememberedOnDevice ? " on this device" : " in this tab"}.`;
+      statusNode.textContent = `${personalCount} personal ${personalCount === 1 ? "effort" : "efforts"} available${status.rememberedOnDevice && !status.storageMessage && !status.sessionOnly ? " on this device" : " in this tab"}.`;
     } else {
       statusNode.textContent = status.errorMessages?.[0] ?? "One or more files could not be imported. Existing comparisons remain available.";
     }
@@ -621,7 +639,7 @@ function createSummaryList(
   const list = node("ol", "comparison-summary-list");
   summaries.forEach((summary) => {
     const item = node("li");
-    const button = control("comparison-summary-row", "");
+    const button = control("comparison-summary-row", "", summary.segment.segmentId);
     button.dataset.segmentId = summary.segment.segmentId;
     button.setAttribute("aria-label", `${summary.segment.campLabel}, ${summary.personalAttempts.length} attempts, ${overviewDelta(summary)}`);
     const titleBlock = node("span", "comparison-summary-copy");
@@ -680,6 +698,7 @@ function createOverview(
     const disclosure = node("details", "comparison-singles");
     disclosure.open = state.showSingleAttempts;
     const summary = node("summary", "", `Single attempts (${singles.length})`);
+    summary.dataset.comparisonFocus = "singles";
     disclosure.append(summary, createSummaryList("Available once", singles, selectSegment));
     disclosure.addEventListener("toggle", () => {
       state.showSingleAttempts = disclosure.open;
@@ -723,6 +742,7 @@ function createDetail(
     const baselineLabel = node("label", "comparison-baseline-label");
     baselineLabel.append(document.createTextNode("Compare with"));
     const select = node("select", "comparison-baseline-select");
+    select.dataset.comparisonFocus = "baseline";
     const previousOption = node("option", "", "Previous attempt");
     previousOption.value = "previous";
     const bestOption = node("option", "", "Previous personal best");
@@ -744,7 +764,7 @@ function createDetail(
     root.append(empty);
   }
 
-  const reference = createReferencePanel(summary, options.onAdoptPublishedReference);
+  const reference = createReferencePanel(summary, dataset.importState?.storageBusy ? undefined : options.onAdoptPublishedReference);
   if (reference) root.append(reference);
   root.append(createImportControls(dataset, inputId, options));
   return root;
@@ -759,6 +779,8 @@ export function createComparisonController(options: ComparisonControllerOptions)
   const emitState = () => options.onStateChange?.({ ...state });
   const render = () => {
     if (destroyed) return;
+    const active = document.activeElement;
+    const focusedWithin = active instanceof HTMLElement && options.root.contains(active);
     const summaries = summarizeComparisonDataset(dataset);
     const selected = summaries.find((summary) => summary.segment.segmentId === state.selectedSegmentId) ?? null;
     const updateState = (patch: Partial<ComparisonViewState>) => {
@@ -770,7 +792,17 @@ export function createComparisonController(options: ComparisonControllerOptions)
     const content = selected
       ? createDetail(dataset, state, selected, inputId, options, updateState)
       : createOverview(dataset, state, inputId, options, (segmentId) => updateState({ selectedSegmentId: segmentId }));
+    const heading = content.querySelector<HTMLElement>(".comparison-hero h3")!;
+    heading.tabIndex = -1;
     options.root.replaceChildren(content);
+    if (focusedWithin) {
+      // A storage refresh replaces the same view, including its focused control.
+      const key = active.dataset.comparisonFocus;
+      const replacement = key
+        ? content.querySelector<HTMLElement>(`[data-comparison-focus="${CSS.escape(key)}"]:not(:disabled)`)
+        : null;
+      (replacement ?? heading).focus({ preventScroll: true });
+    }
   };
 
   const controller: ComparisonController = {

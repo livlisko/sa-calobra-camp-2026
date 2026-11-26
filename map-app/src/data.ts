@@ -169,6 +169,26 @@ function addDerivedGrades(samples: TelemetrySample[]): TelemetrySample[] {
   });
 }
 
+/** Contiguous runs in the published 30-second telemetry, including single observations. */
+export function sampledSegmentExtents(ride: Ride, segmentId: string): [number, number][] {
+  const runs: [number, number][] = [];
+  let previous: TelemetrySample | undefined;
+  for (const sample of ride.telemetrySamples) {
+    if (sample.segmentId !== segmentId) {
+      previous = undefined;
+      continue;
+    }
+    // Buckets occasionally differ by a second. A missing bucket breaks the visible band.
+    if (!previous || sample.movingSeconds - previous.movingSeconds > 45) {
+      runs.push([sample.distanceKm, sample.distanceKm]);
+    } else {
+      runs[runs.length - 1][1] = sample.distanceKm;
+    }
+    previous = sample;
+  }
+  return runs;
+}
+
 function normalizeRide(rawValue: unknown, index: number): Ride {
   const raw = object(rawValue);
   const summary = object(raw.summary ?? raw.stats);

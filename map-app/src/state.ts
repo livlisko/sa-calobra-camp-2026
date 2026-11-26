@@ -19,8 +19,10 @@ export function defaultState(): AtlasState {
 
 function parseCamera(value: string | null): CameraState | null {
   if (!value) return null;
-  const values = value.split(",").map(Number);
-  if (values.length !== 5 || values.some((entry) => !Number.isFinite(entry))) return null;
+  const fields = value.split(",");
+  if (fields.length !== 5 || fields.some(entry => !entry.trim())) return null;
+  const values = fields.map(Number);
+  if (!values.every(Number.isFinite)) return null;
   const [longitude, latitude, zoom, bearing, pitch] = values;
   if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90 || zoom < 0 || zoom > 22) return null;
   return { longitude, latitude, zoom, bearing, pitch: Math.min(85, Math.max(0, pitch)) };
@@ -30,34 +32,42 @@ function formatCamera(camera: CameraState): string {
   return [camera.longitude.toFixed(5), camera.latitude.toFixed(5), camera.zoom.toFixed(2), camera.bearing.toFixed(1), camera.pitch.toFixed(1)].join(",");
 }
 
+type Selection = Pick<AtlasState, "selectedRideId" | "selectedSegmentId" | "selectedPointId" | "selectedSummitId">;
+
+export function normalizeSelection(data: AtlasData, requested: Partial<Selection>): Selection {
+  const point = requested.selectedPointId
+    ? data.rides.flatMap(ride => ride.telemetrySamples).find(sample => sample.sampleId === requested.selectedPointId)
+    : undefined;
+  const segmentId = point ? point.segmentId : requested.selectedSegmentId;
+  const segment = data.segments.find(entry =>
+    entry.matched && entry.segmentId === segmentId && (!point || entry.rideId === point.rideId)
+  );
+  const ride = data.rides.find(entry => entry.rideId === (point?.rideId ?? segment?.rideId ?? requested.selectedRideId));
+  const summit = ride ? undefined : MALLORCA_SUMMITS.find(entry => entry.id === requested.selectedSummitId);
+  return {
+    selectedRideId: ride?.rideId ?? null,
+    selectedSegmentId: segment?.segmentId ?? null,
+    selectedPointId: point?.sampleId ?? null,
+    selectedSummitId: summit?.id ?? null,
+  };
+}
+
 export function stateFromHash(data: AtlasData, fallback: AtlasState): AtlasState {
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const rideIds = new Set(data.rides.map((ride) => ride.rideId));
-  const segmentIds = new Set(data.segments.map((segment) => segment.segmentId));
-  const points = data.rides.flatMap((ride) => ride.telemetrySamples);
-  const pointIds = new Set(points.map((point) => point.sampleId));
-  const summitIds = new Set<string>(MALLORCA_SUMMITS.map((summit) => summit.id));
-  const segment = data.segments.find((entry) => entry.segmentId === params.get("segment"));
-  const point = points.find((entry) => entry.sampleId === params.get("point"));
-  let selectedRideId = rideIds.has(params.get("ride") ?? "") ? params.get("ride") : null;
-  const selectedSegmentId = segmentIds.has(params.get("segment") ?? "") ? params.get("segment") : null;
-  const selectedPointId = pointIds.has(params.get("point") ?? "") ? params.get("point") : null;
-  if (segment) selectedRideId = segment.rideId;
-  if (point) selectedRideId = point.rideId;
-  const requestedSummitId = params.get("summit");
-  const selectedSummitId = !selectedRideId && !selectedSegmentId && !selectedPointId && summitIds.has(requestedSummitId ?? "")
-    ? requestedSummitId
-    : null;
-  const terrainParam = params.get("terrain");
-  const tabParam = params.get("tab") as GuideTab | null;
+  const selection = normalizeSelection(data, {
+    selectedRideId: params.get("ride"),
+    selectedSegmentId: params.get("segment"),
+    selectedPointId: params.get("point"),
+    selectedSummitId: params.get("summit"),
+  });
+  const terrain = params.get("terrain");
+  const tab = params.get("tab") as GuideTab | null;
+  const impliedTab = selection.selectedPointId ? "point" : selection.selectedSegmentId ? "segments" : selection.selectedRideId ? "rides" : "island";
   return {
-    selectedRideId,
-    selectedSegmentId,
-    selectedPointId,
-    selectedSummitId,
+    ...selection,
     previewRideId: null,
-    terrain: terrainParam === "2d" || terrainParam === "3d" ? terrainParam : fallback.terrain,
-    tab: selectedSummitId ? "island" : tabParam && GUIDE_TABS.includes(tabParam) ? tabParam : selectedPointId ? "point" : selectedSegmentId ? "segments" : fallback.tab,
+    terrain: terrain === "2d" || terrain === "3d" ? terrain : fallback.terrain,
+    tab: tab && GUIDE_TABS.includes(tab) ? tab : impliedTab,
     camera: parseCamera(params.get("map")),
   };
 }
@@ -68,8 +78,8 @@ export function writeStateToHash(state: AtlasState, mode: "push" | "replace" = "
   if (state.selectedSegmentId) params.set("segment", state.selectedSegmentId);
   if (state.selectedPointId) params.set("point", state.selectedPointId);
   if (state.selectedSummitId) params.set("summit", state.selectedSummitId);
-  if (state.terrain !== "3d") params.set("terrain", state.terrain);
-  if (state.tab !== "island") params.set("tab", state.tab);
+  params.set("terrain", state.terrain);
+  if (state.tab !== "island" || state.selectedRideId) params.set("tab", state.tab);
   if (state.camera) params.set("map", formatCamera(state.camera));
   const url = `${window.location.pathname}${window.location.search}${params.size ? `#${params}` : ""}`;
   const historyState = { mallorcaAtlas: true };

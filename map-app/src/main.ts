@@ -1,10 +1,10 @@
 import "./map.css";
-import { loadAtlasData } from "./data";
+import { loadAtlasData, sampledSegmentExtents } from "./data";
 import { StaticMapFallback } from "./fallback";
 import { createLocalHistoryExperience } from "./local-history";
 import { ReliefMap } from "./map";
 import { MALLORCA_SUMMITS } from "./mountains";
-import { cameraFromMap, defaultState, stateFromHash, terrainLabel, writeStateToHash } from "./state";
+import { cameraFromMap, defaultState, normalizeSelection, stateFromHash, terrainLabel, writeStateToHash } from "./state";
 import type { AtlasData, AtlasState, GuideTab, Ride, Segment, TelemetrySample } from "./types";
 
 const app = document.querySelector<HTMLElement>("#app") ?? (() => {
@@ -171,7 +171,8 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
 
   const rideById = (id: string | null) => data.rides.find((ride) => ride.rideId === id) ?? null;
   const segmentById = (id: string | null) => data.segments.find((segment) => segment.segmentId === id) ?? null;
-  const pointById = (id: string | null) => data.rides.flatMap((ride) => ride.telemetrySamples).find((point) => point.sampleId === id) ?? null;
+  const pointsById = new Map(data.rides.flatMap(ride => ride.telemetrySamples.map(point => [point.sampleId, point] as const)));
+  const pointById = (id: string | null) => id ? pointsById.get(id) ?? null : null;
   const summitById = (id: string | null) => MALLORCA_SUMMITS.find((summit) => summit.id === id) ?? null;
 
   const announce = (message: string) => {
@@ -179,8 +180,10 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     window.setTimeout(() => { liveRegion.textContent = message; }, 20);
   };
 
+  let selectionHash = window.location.hash;
   const commit = (mode: "push" | "replace" = "push") => {
     writeStateToHash(state, mode);
+    selectionHash = window.location.hash;
   };
 
   const updateMapSelection = () => {
@@ -189,86 +192,114 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     fallback.update(state, state.selectedSummitId);
   };
 
-  const selectRide = (rideId: string, focus = true, commitHistory = true) => {
+  let restoringCamera = false;
+  const withoutCameraWrites = (action: () => void) => {
+    restoringCamera = true;
+    try {
+      action();
+    } finally {
+      restoringCamera = false;
+    }
+  };
+
+  const frameSelection = (animate: boolean) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const point = pointById(state.selectedPointId);
+    const segment = segmentById(state.selectedSegmentId);
+    const ride = rideById(state.selectedRideId);
+    if (state.camera) map.restoreCamera(state.camera);
+    else if (point) map.focusPoint(point, animate);
+    else if (segment) map.fitSegment(segment, animate);
+    else if (state.selectedSummitId) map.selectSummit(state.selectedSummitId, true, animate);
+    else if (ride) map.fitRide(ride, animate);
+    else map.showIsland(animate);
+  };
+
+  const restoreView = () => withoutCameraWrites(() => {
+    mapRef.current?.getCamera().stop();
+    updateMapSelection();
+    mapRef.current?.setTerrain(state.terrain, false);
+    frameSelection(false);
+  });
+
+  type GuideFocus = "detail" | "previous" | "next" | "profile";
+  const focusGuide = (focus: GuideFocus) => {
+    if (focus !== "detail") {
+      const target = focus === "profile" ? profilePanel.querySelector<SVGSVGElement>(".profile-chart")
+        : guideContent.querySelector<HTMLButtonElement>(`[data-step="${focus}"]`);
+      target?.focus({ preventScroll: true });
+      return;
+    }
+    const heading = guideContent.querySelector<HTMLElement>(".selection-card--segment h3") ??
+      guideContent.querySelector<HTMLElement>(".selection-card h3, .comparison-hero h3");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ block: "nearest", behavior: "instant" });
+    } else {
+      document.querySelector<HTMLButtonElement>('[role=tab][aria-selected="true"]')?.focus({ preventScroll: true });
+    }
+  };
+
+  const navigate = (selection: Parameters<typeof normalizeSelection>[1], tab: GuideTab, focus: GuideFocus = "detail") => {
+    // stop() can synchronously emit moveend for the previous animation.
+    withoutCameraWrites(() => mapRef.current?.getCamera().stop());
+    const previousTab = state.tab;
+    Object.assign(state, normalizeSelection(data, selection), { tab, camera: null, previewRideId: null });
+    commit();
+    updateMapSelection();
+    if (tab === "compare" && previousTab === "compare") {
+      guideTitle.textContent = segmentById(state.selectedSegmentId)?.campLabel ?? "Compare past climbs";
+      guideCount.textContent = `${historyExperience.personalEffortCount()} local`;
+      focusGuide("detail");
+    } else {
+      render();
+      focusGuide(focus);
+      if (focus === "profile" && previousTab !== "point") profilePanel.scrollIntoView({ block: "nearest", behavior: "instant" });
+    }
+    frameSelection(!reduceMotion);
+  };
+
+  const selectRide = (rideId: string) => {
     const ride = rideById(rideId);
     if (!ride) return;
-    state.selectedRideId = rideId;
-    state.selectedSegmentId = null;
-    state.selectedPointId = null;
-    state.selectedSummitId = null;
-    state.tab = "rides";
-    updateMapSelection();
-    render();
-    if (focus) mapRef.current?.fitRide(ride, !reduceMotion);
-    if (commitHistory) commit();
+    navigate({ selectedRideId: rideId }, "rides");
     announce(`${ride.label} selected.`);
   };
 
-  const selectSegment = (segmentId: string, focus = true, commitHistory = true) => {
+  const selectSegment = (segmentId: string) => {
     const segment = segmentById(segmentId);
     if (!segment?.matched) return;
-    state.selectedRideId = segment.rideId;
-    state.selectedSegmentId = segment.segmentId;
-    state.selectedPointId = null;
-    state.selectedSummitId = null;
-    state.tab = "segments";
-    updateMapSelection();
-    render();
-    if (focus) mapRef.current?.fitSegment(segment, !reduceMotion);
-    if (commitHistory) commit();
+    navigate({ selectedSegmentId: segmentId }, state.tab === "rides" ? "rides" : "segments");
     announce(`${segment.campLabel} segment selected.`);
   };
 
-  const selectPoint = (pointId: string, focus = true, commitHistory = true) => {
+  const selectPoint = (pointId: string, focus: GuideFocus = "detail") => {
     const point = pointById(pointId);
     if (!point) return;
-    state.selectedRideId = point.rideId;
-    state.selectedPointId = point.sampleId;
-    state.selectedSegmentId = point.segmentId && segmentById(point.segmentId)?.matched ? point.segmentId : state.selectedSegmentId;
-    state.selectedSummitId = null;
-    state.tab = "point";
-    updateMapSelection();
-    render();
-    if (focus) mapRef.current?.focusPoint(point, !reduceMotion);
-    if (commitHistory) commit();
+    navigate({ selectedPointId: point.sampleId }, "point", focus);
     const ride = rideById(point.rideId);
     announce(`${ride?.label ?? "Ride"} point at ${numberValue(point.distanceKm, 1)} kilometres selected.`);
   };
 
-  const stepPoint = (direction: -1 | 1) => {
+  const stepPoint = (direction: -1 | 1, focus: GuideFocus) => {
     const ride = rideById(state.selectedRideId);
     if (!ride?.telemetrySamples.length) return;
     const currentIndex = ride.telemetrySamples.findIndex((point) => point.sampleId === state.selectedPointId);
     const nextIndex = Math.max(0, Math.min(ride.telemetrySamples.length - 1, currentIndex < 0 ? 0 : currentIndex + direction));
-    selectPoint(ride.telemetrySamples[nextIndex].sampleId);
+    if (nextIndex !== currentIndex) selectPoint(ride.telemetrySamples[nextIndex].sampleId, focus);
   };
 
-  const reset = (commitHistory = true) => {
-    state.selectedRideId = null;
-    state.selectedSegmentId = null;
-    state.selectedPointId = null;
-    state.previewRideId = null;
-    state.tab = "island";
-    state.selectedSummitId = null;
-    updateMapSelection();
-    render();
-    mapRef.current?.showIsland(!reduceMotion);
-    if (commitHistory) commit();
+  const reset = () => {
+    navigate({}, "island");
     announce("Map reset to the whole island and all six rides.");
   };
 
-  const selectSummit = (summitId: string, focus = true, commitHistory = true) => {
+  const selectSummit = (summitId: string) => {
     const summit = summitById(summitId);
     if (!summit) return;
-    state.selectedSummitId = summit.id;
-    state.selectedRideId = null;
-    state.selectedSegmentId = null;
-    state.selectedPointId = null;
-    state.tab = "island";
-    updateMapSelection();
-    render();
-    mapRef.current?.selectSummit(summit.id, focus, !reduceMotion);
-    if (commitHistory) commit();
+    navigate({ selectedSummitId: summit.id }, "island");
     announce(`${summit.name}, ${summit.elevationM.toLocaleString("en")} metres, selected.`);
   };
 
@@ -278,18 +309,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     onSummaryChange: ({ personalEffortCount }) => {
       if (state.tab === "compare") guideCount.textContent = `${personalEffortCount} local`;
     },
-    onSegmentSelect: (segmentId) => {
-      const segment = segmentById(segmentId);
-      state.selectedSummitId = null;
-      state.selectedPointId = null;
-      state.selectedSegmentId = segment?.segmentId ?? null;
-      state.selectedRideId = segment?.rideId ?? null;
-      updateMapSelection();
-      if (segment) mapRef.current?.fitSegment(segment, !reduceMotion);
-      guideTitle.textContent = segment?.campLabel ?? "Compare past climbs";
-      guideCount.textContent = `${historyExperience.personalEffortCount()} local`;
-      commit();
-    },
+    onSegmentSelect: (segmentId) => navigate({ selectedSegmentId: segmentId }, "compare"),
   });
 
   const renderIsland = (): void => {
@@ -325,8 +345,8 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     weekMetrics.append(
       metric("Week distance", `${numberValue(totalDistance, 0)} km`),
       metric("Recorded ascent", `${numberValue(totalAscent, 0)} m`),
-      metric("Verified climbs", "15"),
-      metric("Ride days", "6"),
+      metric("Verified climbs", String(data.segments.filter(segment => segment.matched).length)),
+      metric("Ride days", String(data.rides.length)),
     );
     const summitTitle = element("h3", "section-title", "Tramuntana summits");
     const summitList = element("div", "summit-index");
@@ -386,7 +406,12 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       );
       selected.append(metrics);
       if (selectedRide.note) selected.append(element("p", "data-caveat", selectedRide.note));
-      guideContent.append(selected);
+      const group = segmentGroup(selectedRide, "Climbs on this ride");
+      group.classList.add("ride-climbs");
+      guideContent.append(selected, group);
+      const segment = segmentById(state.selectedSegmentId);
+      if (segment) guideContent.append(segmentCard(segment));
+      guideContent.append(profilePanel);
     } else {
       guideContent.append(element("p", "guide-prompt", "Select a route to bring its line forward, open its profile and reveal the published 30-second telemetry samples."));
     }
@@ -405,6 +430,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       item.append(control);
       list.append(item);
     }
+    if (selectedRide) guideContent.append(element("h3", "section-title", "All rides"));
     guideContent.append(list);
   };
 
@@ -421,64 +447,68 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     return metrics;
   };
 
+  const segmentCard = (selectedSegment: Segment): HTMLElement => {
+    const card = element("article", "selection-card selection-card--segment");
+    card.append(element("p", "card-kicker", rideById(selectedSegment.rideId)?.label ?? "Verified climb"), element("h3", "", selectedSegment.campLabel));
+    if (selectedSegment.currentStravaTitle && selectedSegment.currentStravaTitle !== selectedSegment.campLabel) {
+      card.append(element("p", "segment-subtitle", `Currently on Strava: ${selectedSegment.currentStravaTitle}`));
+    }
+    card.append(segmentMetricGrid(selectedSegment));
+    const basis = element("p", "data-caveat", selectedSegment.boundaryBasis === "exact_fit_timestamp"
+      ? "Boundary: exact reviewed FIT time window."
+      : "Boundary: rider FIT window reconciled to the segment’s distance, gain, power and heart rate.");
+    card.append(basis);
+    if (selectedSegment.stravaUrl) {
+      const link = element("a", "strava-link", "Open this segment on Strava ↗");
+      link.href = selectedSegment.stravaUrl;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      card.append(link);
+    }
+    return card;
+  };
+
+  const segmentGroup = (ride: Ride, label = ride.label): HTMLElement => {
+    const rideSegments = data.segments.filter((segment) => segment.rideId === ride.rideId);
+    const group = element("section", "segment-group");
+    const heading = element("div", "segment-group-heading");
+    const swatch = element("span", "mini-swatch");
+    swatch.style.background = ride.color;
+    heading.append(swatch, element("h3", "", label), element("span", "", rideSegments.length ? `${rideSegments.filter((segment) => segment.matched).length}/${rideSegments.length}` : "—"));
+    group.append(heading);
+    if (!rideSegments.length) {
+      group.append(element("p", "no-segments", "No official camp KOM segment for this ride."));
+    } else {
+      const list = element("ul", "segment-list");
+      for (const segment of rideSegments) {
+        const item = element("li", segment.matched ? "" : "is-unmatched");
+        if (segment.matched) {
+          const control = button("segment-row", "");
+          control.dataset.segmentId = segment.segmentId;
+          control.setAttribute("aria-pressed", String(segment.segmentId === state.selectedSegmentId));
+          control.append(
+            element("span", "segment-marker", "↗"),
+            element("strong", "", segment.campLabel),
+            element("span", "segment-stat", `${numberValue(segment.stats.distanceKm, 2)} km · ${duration(segment.stats.elapsedSeconds)}`),
+          );
+          item.append(control);
+        } else {
+          item.append(element("span", "segment-marker segment-marker--empty", "×"), element("strong", "", segment.campLabel), element("span", "segment-stat", "Posted · not ridden"));
+        }
+        list.append(item);
+      }
+      group.append(list);
+    }
+    return group;
+  };
+
   const renderSegments = (): void => {
     const selectedSegment = segmentById(state.selectedSegmentId);
     guideTitle.textContent = selectedSegment ? selectedSegment.campLabel : "The week’s key climbs";
-    guideCount.textContent = "15 / 17 matched";
-    if (selectedSegment) {
-      const card = element("article", "selection-card selection-card--segment");
-      card.append(element("p", "card-kicker", rideById(selectedSegment.rideId)?.label ?? "Verified climb"), element("h3", "", selectedSegment.campLabel));
-      if (selectedSegment.currentStravaTitle && selectedSegment.currentStravaTitle !== selectedSegment.campLabel) {
-        card.append(element("p", "segment-subtitle", `Currently on Strava: ${selectedSegment.currentStravaTitle}`));
-      }
-      card.append(segmentMetricGrid(selectedSegment));
-      const basis = element("p", "data-caveat", selectedSegment.boundaryBasis === "exact_fit_timestamp"
-        ? "Boundary: exact reviewed FIT time window."
-        : "Boundary: rider FIT window reconciled to the segment’s distance, gain, power and heart rate.");
-      card.append(basis);
-      if (selectedSegment.stravaUrl) {
-        const link = element("a", "strava-link", "Open this segment on Strava ↗");
-        link.href = selectedSegment.stravaUrl;
-        link.target = "_blank";
-        link.rel = "noreferrer";
-        card.append(link);
-      }
-      guideContent.append(card);
-    }
+    guideCount.textContent = `${data.segments.filter(segment => segment.matched).length} / ${data.segments.length} matched`;
+    if (selectedSegment) guideContent.append(segmentCard(selectedSegment));
     const groups = element("div", "segment-groups");
-    for (const ride of data.rides) {
-      const rideSegments = data.segments.filter((segment) => segment.rideId === ride.rideId);
-      const group = element("section", "segment-group");
-      const heading = element("div", "segment-group-heading");
-      const swatch = element("span", "mini-swatch");
-      swatch.style.background = ride.color;
-      heading.append(swatch, element("h3", "", ride.label), element("span", "", rideSegments.length ? `${rideSegments.filter((segment) => segment.matched).length}/${rideSegments.length}` : "—"));
-      group.append(heading);
-      if (!rideSegments.length) {
-        group.append(element("p", "no-segments", "No official camp KOM segment for this ride."));
-      } else {
-        const list = element("ul", "segment-list");
-        for (const segment of rideSegments) {
-          const item = element("li", segment.matched ? "" : "is-unmatched");
-          if (segment.matched) {
-            const control = button("segment-row", "");
-            control.dataset.segmentId = segment.segmentId;
-            control.setAttribute("aria-pressed", String(segment.segmentId === state.selectedSegmentId));
-            control.append(
-              element("span", "segment-marker", "↗"),
-              element("strong", "", segment.campLabel),
-              element("span", "segment-stat", `${numberValue(segment.stats.distanceKm, 2)} km · ${duration(segment.stats.elapsedSeconds)}`),
-            );
-            item.append(control);
-          } else {
-            item.append(element("span", "segment-marker segment-marker--empty", "×"), element("strong", "", segment.campLabel), element("span", "segment-stat", "Posted · not ridden"));
-          }
-          list.append(item);
-        }
-        group.append(list);
-      }
-      groups.append(group);
-    }
+    for (const ride of data.rides) groups.append(segmentGroup(ride));
     guideContent.append(groups);
   };
 
@@ -490,7 +520,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     if (!ride) {
       guideContent.append(element("p", "guide-prompt", "Choose a ride first. Its sampled telemetry appears from a useful zoom level, and every point also has previous/next controls here."));
       const shortcut = button("primary-button", "Choose a ride");
-      shortcut.addEventListener("click", () => { state.tab = "rides"; render(); commit(); });
+      shortcut.addEventListener("click", () => navigate({}, "rides"));
       guideContent.append(shortcut);
       return;
     }
@@ -523,8 +553,10 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     const controls = element("div", "point-controls");
     const previous = button("step-button", "← Previous", "Previous published telemetry sample");
     const next = button("step-button", "Next →", "Next published telemetry sample");
-    previous.addEventListener("click", () => stepPoint(-1));
-    next.addEventListener("click", () => stepPoint(1));
+    previous.dataset.step = "previous";
+    next.dataset.step = "next";
+    previous.addEventListener("click", () => stepPoint(-1, "previous"));
+    next.addEventListener("click", () => stepPoint(1, "next"));
     controls.append(previous, next);
     card.append(controls);
     guideContent.append(card);
@@ -548,7 +580,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     const width = 640;
     const height = 156;
     const inset = { top: 16, right: 12, bottom: 30, left: 42 };
-    const distanceMax = Math.max(...points.map((point) => point.distanceKm), 1);
+    const distanceMax = Math.max(...ride.telemetrySamples.map((point) => point.distanceKm), 1);
     const altitudeMin = Math.min(...points.map((point) => point.recordedAltitudeM!));
     const altitudeMax = Math.max(...points.map((point) => point.recordedAltitudeM!));
     const altitudeRange = Math.max(1, altitudeMax - altitudeMin);
@@ -563,20 +595,29 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     const path = points.map((point, index) => `${index ? "L" : "M"}${x(point.distanceKm).toFixed(1)},${y(point.recordedAltitudeM!).toFixed(1)}`).join(" ");
     const baseline = height - inset.bottom;
     const selectedSegment = segmentById(state.selectedSegmentId);
-    if (selectedSegment?.rideId === ride.rideId && selectedSegment.startPoint && selectedSegment.endPoint) {
-      const startSample = nearestPoint(ride, selectedSegment.startPoint);
-      const endSample = nearestPoint(ride, selectedSegment.endPoint);
-      if (startSample && endSample) {
-        const startX = x(Math.min(startSample.distanceKm, endSample.distanceKm));
-        const endX = x(Math.max(startSample.distanceKm, endSample.distanceKm));
-        const band = document.createElementNS(svg.namespaceURI, "rect");
-        band.setAttribute("x", String(startX));
-        band.setAttribute("y", String(inset.top));
-        band.setAttribute("width", String(Math.max(2, endX - startX)));
-        band.setAttribute("height", String(baseline - inset.top));
+    if (selectedSegment?.rideId === ride.rideId) {
+      const extents = sampledSegmentExtents(ride, selectedSegment.segmentId);
+      for (const [startKm, endKm] of extents) {
+        const band = document.createElementNS(svg.namespaceURI, startKm === endKm ? "line" : "rect");
         band.setAttribute("class", "profile-segment-band");
+        if (startKm === endKm) {
+          band.setAttribute("x1", String(x(startKm)));
+          band.setAttribute("x2", String(x(startKm)));
+          band.setAttribute("y1", String(inset.top));
+          band.setAttribute("y2", String(baseline));
+        } else {
+          band.setAttribute("x", String(x(startKm)));
+          band.setAttribute("y", String(inset.top));
+          band.setAttribute("width", String(x(endKm) - x(startKm)));
+          band.setAttribute("height", String(baseline - inset.top));
+        }
         svg.append(band);
       }
+      const observed = extents.map(([start, end]) => start === end
+        ? `${numberValue(start, 2)} km` : `${numberValue(start, 2)}–${numberValue(end, 2)} km`);
+      profilePanel.append(element("p", "profile-segment-caption", observed.length
+        ? `${selectedSegment.campLabel} · sampled at ${observed.join(", ")}`
+        : `${selectedSegment.campLabel} has no tagged profile samples.`));
     }
     const area = document.createElementNS(svg.namespaceURI, "path");
     area.setAttribute("d", `${path} L${x(points.at(-1)!.distanceKm).toFixed(1)},${baseline} L${x(points[0].distanceKm).toFixed(1)},${baseline} Z`);
@@ -620,24 +661,25 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
       axis.append(node);
     });
     svg.append(axis);
-    const chooseAtClientX = (clientX: number) => {
-      const rect = svg.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    svg.addEventListener("click", (event) => {
+      const matrix = svg.getScreenCTM();
+      if (!matrix) return;
+      const local = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+      const ratio = Math.max(0, Math.min(1, (local.x - inset.left) / (width - inset.left - inset.right)));
       const desiredDistance = ratio * distanceMax;
       const point = points.reduce((best, candidate) => Math.abs(candidate.distanceKm - desiredDistance) < Math.abs(best.distanceKm - desiredDistance) ? candidate : best, points[0]);
-      selectPoint(point.sampleId, false);
-    };
-    svg.addEventListener("click", (event) => chooseAtClientX(event.clientX));
+      selectPoint(point.sampleId);
+    });
     svg.addEventListener("keydown", (event) => {
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        stepPoint(event.key === "ArrowLeft" ? -1 : 1);
+        stepPoint(event.key === "ArrowLeft" ? -1 : 1, "profile");
       } else if (event.key === "Home") {
         event.preventDefault();
-        selectPoint(points[0].sampleId);
+        selectPoint(points[0].sampleId, "profile");
       } else if (event.key === "End") {
         event.preventDefault();
-        selectPoint(points.at(-1)!.sampleId);
+        selectPoint(points.at(-1)!.sampleId, "profile");
       }
     });
     profilePanel.append(svg);
@@ -647,7 +689,7 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   const viewKey = (): string => [
     state.tab,
     state.selectedRideId ?? "",
-    state.tab === "segments" ? state.selectedSegmentId ?? "" : "",
+    state.tab === "segments" || state.tab === "rides" ? state.selectedSegmentId ?? "" : "",
     state.tab === "island" ? state.selectedSummitId ?? "" : "",
   ].join(":");
 
@@ -661,8 +703,11 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   const render = (): void => {
     const nextViewKey = viewKey();
     const shouldResetGuide = nextViewKey !== renderedViewKey;
+    const scrollTop = guideScroll.scrollTop;
+    const windowTop = window.scrollY;
     historyExperience.unmount();
     guideContent.replaceChildren();
+    guideContent.after(profilePanel);
     document.querySelectorAll<HTMLButtonElement>("[role=tab][data-tab]").forEach((tab) => {
       const active = tab.dataset.tab === state.tab;
       tab.setAttribute("aria-selected", String(active));
@@ -676,13 +721,17 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
     if (state.tab === "segments") renderSegments();
     if (state.tab === "point") renderPoint();
     if (state.tab === "compare") {
-      guideTitle.textContent = "Compare past climbs";
+      guideTitle.textContent = segmentById(state.selectedSegmentId)?.campLabel ?? "Compare past climbs";
       guideCount.textContent = `${historyExperience.personalEffortCount()} local`;
       historyExperience.mount(guideContent, state.selectedSegmentId);
     } else {
       renderProfile();
     }
     if (shouldResetGuide) resetGuidePosition();
+    else if (state.tab === "point") {
+      guideScroll.scrollTop = scrollTop;
+      if (window.scrollY !== windowTop) window.scrollTo({ top: windowTop, behavior: "instant" });
+    }
     renderedViewKey = nextViewKey;
   };
 
@@ -714,11 +763,15 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   const tabs = [...document.querySelectorAll<HTMLButtonElement>("[role=tab][data-tab]")];
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => {
-      state.tab = tab.dataset.tab as GuideTab;
-      if (state.tab !== "island") state.selectedSummitId = null;
-      updateMapSelection();
-      render();
+      const nextTab = tab.dataset.tab as GuideTab;
+      if (state.tab === nextTab) return;
+      if (state.selectedSummitId && nextTab !== "island") {
+        navigate({}, nextTab);
+        return;
+      }
+      state.tab = nextTab;
       commit();
+      render();
     });
     tab.addEventListener("keydown", (event) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -730,10 +783,12 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
   });
 
   terrainToggle.addEventListener("click", () => {
+    withoutCameraWrites(() => mapRef.current?.getCamera().stop());
     state.terrain = state.terrain === "3d" ? "2d" : "3d";
+    state.camera = null;
+    commit();
     mapRef.current?.setTerrain(state.terrain, !reduceMotion);
     render();
-    commit();
     announce(`${terrainLabel(state.terrain)} enabled.`);
   });
   document.querySelector<HTMLButtonElement>("#reset-map")!.addEventListener("click", () => reset());
@@ -748,34 +803,34 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
 
   try {
     mapRef.current = new ReliefMap(document.querySelector<HTMLElement>("#map")!, data, state, {
-      onReady: () => {
-        mapPanel.dataset.mapReady = "true";
+      onViewInit: restoreView,
+      onAvailabilityChange: (available) => {
         const liveMap = document.querySelector<HTMLElement>("#map")!;
         const fallbackHost = document.querySelector<HTMLElement>("#fallback")!;
-        liveMap.inert = false;
-        fallbackHost.inert = true;
-        fallbackHost.setAttribute("aria-hidden", "true");
+        const wasFocused = (available ? fallbackHost : liveMap).contains(document.activeElement);
+        mapPanel.dataset.mapReady = String(available);
+        liveMap.inert = !available;
+        fallbackHost.inert = available;
+        fallbackHost.setAttribute("aria-hidden", String(available));
+        if (wasFocused) {
+          const next = available ? liveMap.querySelector<HTMLElement>(".maplibregl-canvas")
+            : fallbackHost.querySelector<SVGElement>('[aria-pressed="true"]') ?? fallbackHost.querySelector<SVGElement>('[role="button"]');
+          next?.focus({ preventScroll: true });
+        }
       },
       onStatus: updateStatus,
       onRideClick: (rideId, coordinate) => {
         const ride = rideById(rideId);
         if (!ride) return;
         const point = nearestPoint(ride, coordinate);
-        state.selectedRideId = rideId;
-        state.selectedSegmentId = null;
-        state.selectedPointId = point?.sampleId ?? null;
-        state.selectedSummitId = null;
-        state.tab = point ? "point" : "rides";
-        updateMapSelection();
-        render();
-        commit();
-        announce(point ? `${ride.label}, ${numberValue(point.distanceKm, 1)} kilometre sample selected.` : `${ride.label} selected.`);
+        if (point) selectPoint(point.sampleId);
+        else selectRide(rideId);
       },
       onSegmentClick: (segmentId) => selectSegment(segmentId),
-      onPointClick: (pointId) => selectPoint(pointId, false),
+      onPointClick: (pointId) => selectPoint(pointId),
       onSummitClick: (summitId) => selectSummit(summitId),
       onCameraChange: () => {
-        if (!mapRef.current) return;
+        if (restoringCamera || !mapRef.current || window.location.hash !== selectionHash || mapRef.current.getCamera().isMoving()) return;
         state.camera = cameraFromMap(mapRef.current.getCamera());
         commit("replace");
       },
@@ -787,20 +842,25 @@ function bootstrapGuide(data: AtlasData, state: AtlasState, mapRef: { current: R
 
   const restoreFromHistory = () => {
     const restored = stateFromHash(data, defaultState());
+    const samePointView = state.tab === "point" && restored.tab === "point" && state.selectedRideId === restored.selectedRideId;
+    let focus: GuideFocus = "detail";
+    if (samePointView && document.activeElement?.matches(".profile-chart")) focus = "profile";
+    const step = (document.activeElement as HTMLElement | null)?.dataset?.step;
+    if (samePointView && (step === "previous" || step === "next")) focus = step;
     Object.assign(state, restored);
-    updateMapSelection();
-    mapRef.current?.setTerrain(state.terrain, false);
-    if (state.camera) mapRef.current?.restoreCamera(state.camera);
+    commit("replace");
+    restoreView();
     render();
+    focusGuide(focus);
   };
+  window.history.scrollRestoration = "manual";
   window.addEventListener("popstate", restoreFromHistory);
-  window.addEventListener("online", () => updateStatus(mapPanel.dataset.mapReady === "true" ? "Live terrain ready" : "Back online; live terrain may resume.", "quiet"));
-  window.addEventListener("offline", () => updateStatus("Offline. Routes and the static island map remain available.", "warning"));
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) mapRef.current?.resize();
   });
   window.addEventListener("resize", () => mapRef.current?.resize(), { passive: true });
 
+  if (window.location.hash) commit("replace");
   fallback.update(state, state.selectedSummitId);
   render();
 }

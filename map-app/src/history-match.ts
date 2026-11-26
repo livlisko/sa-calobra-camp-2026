@@ -608,11 +608,12 @@ function elevationGain(
   for (let index = 0; index + 1 < points.length; index += 1) {
     const start = points[index];
     const end = points[index + 1];
-    if (start.timestampMs < startTimestampMs || end.timestampMs > endTimestampMs) continue;
+    const overlapMs = Math.min(endTimestampMs, end.timestampMs) - Math.max(startTimestampMs, start.timestampMs);
+    if (overlapMs <= 0) continue;
     const seconds = (end.timestampMs - start.timestampMs) / 1000;
     if (seconds <= 0 || seconds > maximumGapSeconds || !start.timerRunning || !end.timerRunning) continue;
     if (start.altitudeM === null || end.altitudeM === null) continue;
-    gain += Math.max(0, end.altitudeM - start.altitudeM);
+    gain += Math.max(0, end.altitudeM - start.altitudeM) * (overlapMs / (end.timestampMs - start.timestampMs));
     validPairs += 1;
   }
   return validPairs ? gain : null;
@@ -690,6 +691,8 @@ export function deriveHistoryEffort(
     campLabel: match.campLabel,
     templateHash: match.templateHash,
     startedAtIso: new Date(startTimestampMs).toISOString(),
+    startTimestampMs,
+    endTimestampMs,
     elapsedSeconds: Math.max(0, Math.round((endTimestampMs - startTimestampMs) / 1000)),
     movingSeconds: Math.max(0, Math.round(moving)),
     distanceM: distanceM === null ? null : rounded(distanceM, 1),

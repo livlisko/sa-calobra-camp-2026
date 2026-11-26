@@ -67,7 +67,7 @@ function parseInWorker(
   options: HistoryImportOptions,
 ): Promise<HistoryImportResult | HistoryImportFailure> {
   return new Promise((resolve, reject) => {
-    const onAbort = () => reject(abortError());
+    const onAbort = () => { cleanup(); reject(abortError()); };
     const cleanup = () => {
       worker.removeEventListener("message", onMessage);
       worker.removeEventListener("error", onWorkerError);
